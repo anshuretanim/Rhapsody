@@ -1,0 +1,25 @@
+*{
+    padding: 0;
+    margin: 0;
+}
+
+.navbar{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 50px;
+    background-color: black;
+    
+}
+
+.btn-el-abt{
+    text-decoration: none;
+    border: none;
+    
+    
+}
+
+.logo img{
+    height: 2rem;
+    width: 2rem;
+}

@@ -1,0 +1,16 @@
+.lower-body{
+    background-image: url('/Picsart_26-10-02_23-11-39-750.jpg');
+    background-size: cover;
+    background-position: center;
+    background-position: center;
+    background-repeat: no-repeat;
+    height: calc(100vh - 72px);
+    display: flex;
+        justify-content: center;
+    align-items: center;
+}
+
+.heading{
+    text-align: center;
+
+}
