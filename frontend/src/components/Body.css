@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Caesar+Dressing&family=Manrope:wght@200..800&family=Rock+Salt&display=swap');
+
+
 .lower-body{
     background-image: url('/Picsart_26-10-02_23-11-39-750.jpg');
     background-size: cover;
@@ -12,5 +15,34 @@
 
 .heading{
     text-align: center;
+
+}
+
+span{
+    color: red;
+}
+
+.rhapsody-title{
+    font-family: "Caesar Dressing", cursive;
+    font-weight: 400;
+    font-style: normal;
+    color: white;
+    /* text-align: center; */
+    margin: 10px 0 30px;
+    font-size: 150px;
+    line-height: 1;
+
+}
+
+.mainHeading{
+    color: white;
+     font-family: "Manrope", sans-serif;
+  font-size: 24px;
+  text-align: center;
+  margin: 0;
+}
+
+.input-form{
+    color: white;
 
 }

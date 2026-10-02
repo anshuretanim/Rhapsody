@@ -25,11 +25,11 @@ async function handleFile(event){
 
 return(
     <div className='lower-body'>
-
+<h1 className='rhapsody-title'>RHAPSODY</h1>
 <div className='heading'>
-    <h1 className='mainHeading'>Choose a file to get started</h1>
+    <h1 className='mainHeading'>Choose a file to <span> get started</span></h1>
     <form className = 'takeFile'>
-        <input type='file' 
+        <input className='input-form' type='file' 
         accept = '.csv'
         onChange={handleFile} />
     </form>
