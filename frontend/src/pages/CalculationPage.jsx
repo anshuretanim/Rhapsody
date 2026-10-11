@@ -1,0 +1,361 @@
+
+import { useLocation, useNavigate } from "react-router-dom";
+import "./CalculationPage.css";
+
+function StatCard({ label, value, detail }) {
+    return (
+        <article className="stat-card">
+            <p className="stat-label">{label}</p>
+            <h3 className="stat-value">{value}</h3>
+            {detail && <p className="stat-detail">{detail}</p>}
+        </article>
+    );
+}
+
+function ListeningBars({ data, suffix = "hours" }) {
+    const entries = Object.entries(data || {});
+    const maxValue = Math.max(
+        ...entries.map(([, value]) => Number(value) || 0),
+        1
+    );
+
+    if (entries.length === 0) {
+        return <p className="empty-chart">No listening data available.</p>;
+    }
+
+    return (
+        <div className="listening-bars">
+            {entries.map(([label, value]) => {
+                const numericValue = Number(value) || 0;
+                const width = Math.max(
+                    numericValue > 0 ? 2 : 0,
+                    (numericValue / maxValue) * 100
+                );
+
+                return (
+                    <div className="listening-bar-row" key={label}>
+                        <span className="bar-label">{label}</span>
+
+                        <div className="bar-track">
+                            <div
+                                className="bar-fill"
+                                style={{ width: `${width}%` }}
+                            />
+                        </div>
+
+                        <span className="bar-value">
+                            {numericValue} {suffix}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function CalculationPage() {
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const selectedArtist = location.state?.artist || "";
+    const stats = location.state?.statistics;
+
+    if (!stats) {
+        return (
+            <main className="calculation-page">
+                <div className="calculation-glow" />
+
+                <div className="calculation-empty">
+                    <span className="empty-icon">♫</span>
+                    <p className="section-eyebrow">RHAPSODY / ANALYSIS</p>
+                    <h1>Nothing playing <span>yet.</span></h1>
+                    <p>
+                        No statistics were found. Upload your Spotify CSV
+                        and select an artist to generate your listening report.
+                    </p>
+
+                    <button
+                        className="back-button"
+                        onClick={() => navigate("/")}
+                    >
+                        RETURN HOME <span>↗</span>
+                    </button>
+                </div>
+            </main>
+        );
+    }
+
+    const formatNumber = (value) =>
+        value == null ? "N/A" : Number(value).toLocaleString();
+
+    const formatHours = (value) =>
+        value == null ? "N/A" : `${Number(value).toLocaleString()} h`;
+
+    const formatPercent = (value) =>
+        value == null ? "N/A" : `${value}%`;
+
+    const timeOfDay = stats.playsByTime || {};
+    const totalTimeOfDayPlays = Object.values(timeOfDay).reduce(
+        (total, value) => total + (Number(value) || 0),
+        0
+    );
+
+    return (
+        <main className="calculation-page">
+            <div className="calculation-glow" />
+
+            <div className="calculation-content">
+                <header className="calculation-header">
+                    <button
+                        className="calculation-brand"
+                        onClick={() => navigate("/")}
+                    >
+                        
+                        <span>RHAPSODY</span>
+                    </button>
+
+                    <span className="report-status">
+                        <span className="status-dot" />
+                        LISTENING REPORT
+                    </span>
+                </header>
+
+                <section className="artist-hero">
+                    <p className="section-eyebrow">
+                        YOUR LISTENING, DECODED
+                    </p>
+
+                    <h1>
+                        Artist <span>analysis.</span>
+                    </h1>
+
+                    <div className="artist-name-card">
+                        <div className="artist-vinyl" aria-hidden="true">
+                            <div className="vinyl-center">♫</div>
+                        </div>
+
+                        <div className="artist-hero-info">
+                            <p className="artist-hero-label">
+                                YOUR SELECTED HEADLINER
+                            </p>
+                            <h2>{selectedArtist}</h2>
+                            <p className="artist-hero-caption">
+                                A closer look at your listening habits.
+                            </p>
+                        </div>
+
+                        <div className="artist-hero-badge">✳</div>
+                    </div>
+                </section>
+
+                <section className="report-section">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-eyebrow">THE BIG PICTURE</p>
+                            <h2>Your listening habits</h2>
+                        </div>
+                        <span className="section-index">01 / OVERVIEW</span>
+                    </div>
+
+                    <div className="stats-grid">
+                        <StatCard
+                            label="TOTAL LISTENING"
+                            value={formatHours(stats.totalHours)}
+                            detail="Across your entire history"
+                        />
+
+                        <StatCard
+                            label="TRACK RECORDS"
+                            value={formatNumber(stats.totalPlays)}
+                            detail="Records with a track name"
+                        />
+
+                        <StatCard
+                            label="AVERAGE LISTEN"
+                            value={
+                                stats.averageSeconds == null
+                                    ? "N/A"
+                                    : `${stats.averageSeconds}s`
+                            }
+                            detail="Per recorded track entry"
+                        />
+
+                        <StatCard
+                            label="OVERALL SKIP RATE"
+                            value={formatPercent(stats.skipRate)}
+                            detail="Based on valid skip values"
+                        />
+                    </div>
+                </section>
+
+                <section className="report-section">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-eyebrow">
+                                THE MAIN CHARACTER
+                            </p>
+                            <h2>You and {selectedArtist}</h2>
+                        </div>
+                        <span className="section-index">02 / ARTIST</span>
+                    </div>
+
+                    <div className="artist-stats-grid">
+                        <article className="loyalty-card">
+                            <p className="stat-label">ARTIST LOYALTY</p>
+
+                            <div className="loyalty-number">
+                                {stats.artistLoyalty ?? "N/A"}
+                                {stats.artistLoyalty != null && (
+                                    <span>%</span>
+                                )}
+                            </div>
+
+                            <p className="loyalty-description">
+                                Share of your total listening time spent
+                                with this artist.
+                            </p>
+
+                            <div className="loyalty-track">
+                                <div
+                                    className="loyalty-fill"
+                                    style={{
+                                        width: `${Math.min(
+                                            100,
+                                            Math.max(
+                                                0,
+                                                Number(stats.artistLoyalty) || 0
+                                            )
+                                        )}%`,
+                                    }}
+                                />
+                            </div>
+                        </article>
+
+                        <div className="artist-stat-stack">
+                            <StatCard
+                                label="TIME WITH THIS ARTIST"
+                                value={formatHours(stats.artistHours)}
+                            />
+
+                            <StatCard
+                                label="TRACK RECORDS"
+                                value={formatNumber(stats.artistPlays)}
+                            />
+
+                            <StatCard
+                                label="ARTIST SKIP RATE"
+                                value={formatPercent(stats.artistSkipRate)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="favourites-grid">
+                        <article className="favourite-card">
+                            <span className="favourite-icon">♫</span>
+                            <div>
+                                <p className="stat-label">
+                                    YOUR MOST-PLAYED TRACK
+                                </p>
+                                <h3>{stats.artistFavouriteSong || "Unknown"}</h3>
+                            </div>
+                        </article>
+
+                        <article className="favourite-card">
+                            <span className="favourite-icon">▤</span>
+                            <div>
+                                <p className="stat-label">
+                                    YOUR TOP ALBUM
+                                </p>
+                                <h3>{stats.artistFavouriteAlbum || "Unknown"}</h3>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section className="report-section">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-eyebrow">OVER TIME</p>
+                            <h2>When the music happens</h2>
+                        </div>
+                        <span className="section-index">03 / TIMELINE</span>
+                    </div>
+
+                    <div className="chart-grid">
+                        <article className="chart-card">
+                            <div className="chart-card-heading">
+                                <div>
+                                    <h3>Monthly listening</h3>
+                                    <p>All artists · hours listened</p>
+                                </div>
+                                <span className="chart-icon">↗</span>
+                            </div>
+
+                            <ListeningBars
+                                data={stats.monthlyListening}
+                            />
+                        </article>
+
+                        <article className="chart-card">
+                            <div className="chart-card-heading">
+                                <div>
+                                    <h3>{selectedArtist}</h3>
+                                    <p>Monthly listening · hours</p>
+                                </div>
+                                <span className="chart-icon">♫</span>
+                            </div>
+
+                            <ListeningBars
+                                data={stats.artistMonthlyListening}
+                            />
+                        </article>
+                    </div>
+                </section>
+
+                <section className="report-section">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-eyebrow">YOUR DAILY RHYTHM</p>
+                            <h2>When you press play</h2>
+                        </div>
+                        <span className="section-index">04 / TIME OF DAY</span>
+                    </div>
+
+                    <article className="chart-card time-chart-card">
+                        <div className="chart-card-heading">
+                            <div>
+                                <h3>Listening by time of day</h3>
+                                <p>
+                                    {formatNumber(totalTimeOfDayPlays)} recorded
+                                    track entries
+                                </p>
+                            </div>
+                            <span className="chart-icon">◷</span>
+                        </div>
+
+                        <ListeningBars
+                            data={timeOfDay}
+                            suffix="plays"
+                        />
+                    </article>
+                </section>
+
+                <footer className="calculation-footer">
+                    <span>RHAPSODY © 2026</span>
+                    <span>
+                        <span className="footer-dot" />
+                        BUILT AROUND YOUR LISTENING HISTORY
+                    </span>
+                    <button
+                        className="footer-back-button"
+                        onClick={() => navigate("/")}
+                    >
+                        BACK HOME ↗
+                    </button>
+                </footer>
+            </div>
+        </main>
+    );
+}
+
+export default CalculationPage;
