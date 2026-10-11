@@ -1,8 +1,10 @@
+library(jsonlite)
 args <- commandArgs(trailingOnly = TRUE)
-print(args)
-file_path <- args[1]
-print(file_path)
-data <- read.csv(file_path)
 
-print(names(data))
-print(head(data))
+file_path <- args[1]
+
+data <- read.csv(file_path)
+artists <- unique(data$artist_name)
+artists <- artists[!is.na(artists) & artists != ""]
+
+cat(jsonlite::toJSON(artists, auto_unbox = FALSE))
