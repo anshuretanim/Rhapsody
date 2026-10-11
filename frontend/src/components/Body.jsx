@@ -46,17 +46,7 @@ return(
         onChange={handleFile} />
     </form>
 </div>
-
-
-
-
-
     </div>
 );
-
-
 }
-
-
-
 export default Body;

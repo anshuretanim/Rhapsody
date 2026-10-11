@@ -31,9 +31,9 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
   rProcess.stderr.on("data", (data) => {
     errorOutput += data.toString();
-  });
+  }); // collects messages from R.
 
-  rProcess.on("error", (error) => {
+  rProcess.on("error", (error) => { //if Node.js cannot start R
     console.error("Failed to start R:", error);
 
     res.status(500).json({
@@ -46,12 +46,12 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
     if (code != 0) {
       console.error(errorOutput);
-      return res.status(500).json({
+      return res.status(500).json({ //sends error message to React
         error: "R processing failed",
       });
     }
     try {
-      const artists = JSON.parse(output);
+      const artists = JSON.parse(output); // converts the output string to JS array
 
       res.json({
         message: "File processed successfully",
