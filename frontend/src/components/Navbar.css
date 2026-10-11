@@ -1,25 +1,90 @@
-*{
-    padding: 0;
-    margin: 0;
-}
 
-.navbar{
+
+.navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 50px;
-    background-color: black;
-    
+    padding: 18px 50px;
+    background-color: #080808;
+    border-bottom: 1px solid #1d1d1d;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 10;
 }
 
-.btn-el-abt{
+.logo {
+    display: inline-flex;
+    align-items: center;
     text-decoration: none;
-    border: none;
-    
-    
 }
 
-.logo img{
-    height: 2rem;
-    width: 2rem;
+.logo img {
+    display: block;
+    height: 36px;
+    width: 36px;
+    object-fit: contain;
+    transition: transform 0.25s ease;
+}
+
+.logo:hover img {
+    transform: scale(1.08);
+}
+
+.link-names {
+    display: flex;
+    align-items: center;
+    list-style: none;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #b3b3b3;
+    text-decoration: none;
+    font-family: "Manrope", sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #1ed760;
+}
+
+.nav-arrow {
+    display: inline-block;
+    color: #555555;
+    font-size: 16px;
+    transition:
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.nav-link:hover .nav-arrow {
+    color: #1ed760;
+    transform: translate(2px, -2px);
+}
+
+.nav-link:focus-visible,
+.logo:focus-visible {
+    outline: 2px solid #1ed760;
+    outline-offset: 5px;
+    border-radius: 2px;
+}
+
+@media (max-width: 650px) {
+    .navbar {
+        padding: 16px 20px;
+    }
+
+    .logo img {
+        height: 32px;
+        width: 32px;
+    }
+
+    .nav-link {
+        font-size: 12px;
+    }
 }

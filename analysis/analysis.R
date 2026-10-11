@@ -25,9 +25,9 @@ columns_to_remove <- c(
 data <- data[, !(names(data) %in% columns_to_remove)]
 
 data$timestamp <- as.POSIXct(
-    data$ts,
-    format = "%Y-%m-%dT%H:%M:%SZ",
-    tz = "UTC"
+  data$ts,
+  format = "%Y-%m-%dT%H:%M:%SZ",
+  tz = "UTC"
 )
 
 data$month <- format(data$timestamp, "%B")

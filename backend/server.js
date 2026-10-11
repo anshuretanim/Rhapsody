@@ -8,12 +8,12 @@ const { spawn } = require("child_process");
 const app = express();
 
 app.use(cors());
+app.use(express.json());
 
 const upload = multer({
   dest: "uploads/",
-  // Creates a Multer configuration that stores uploaded files 
+  // Creates a Multer configuration that stores uploaded files
   // in the uploads/ directory
-
 });
 
 app.post("/upload", upload.single("file"), (req, res) => {
@@ -33,7 +33,8 @@ app.post("/upload", upload.single("file"), (req, res) => {
     errorOutput += data.toString();
   }); // collects messages from R.
 
-  rProcess.on("error", (error) => { //if Node.js cannot start R
+  rProcess.on("error", (error) => {
+    //if Node.js cannot start R
     console.error("Failed to start R:", error);
 
     res.status(500).json({
@@ -46,7 +47,8 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
     if (code != 0) {
       console.error(errorOutput);
-      return res.status(500).json({ //sends error message to React
+      return res.status(500).json({
+        //sends error message to React
         error: "R processing failed",
       });
     }
@@ -65,6 +67,47 @@ app.post("/upload", upload.single("file"), (req, res) => {
       });
     }
   });
+});
+///////////////////////////////////////////////////////
+app.post("/artist", (req, res) => {
+  const artist = req.body.artist;
+
+  const rProcess = spawn("Rscript", ["../analysis/artist.R", artist]);
+  let output = "";
+  let errorOutput = "";
+
+  rProcess.stdout.on("data", (data) => {
+    output += data.toString();
+  });
+  rProcess.stderr.on("data", (data) => {
+    errorOutput += data.toString();
+  });
+
+  rProcess.on("error", (error) => {
+    //if Node.js cannot start R
+    console.error("Failed to start R:", error);
+
+    res.status(500).json({
+      error: "Could not start R",
+    });
+  });
+
+  rProcess.on("close", (code) => {
+    console.log(`R process exited with code ${code}`);
+
+    if (code != 0) {
+      console.error(errorOutput);
+      return res.status(500).json({
+        //sends error message to React
+        error: "R processing failed",
+      });
+    }
+      res.json({
+        message: "Artist processed successfully.",
+        artist: output.trim(),
+      });
+  });
+
 });
 
 app.listen(5000, () => {
