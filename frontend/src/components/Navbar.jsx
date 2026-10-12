@@ -1,3 +1,4 @@
+
 import "./Navbar.css";
 import { Link } from "react-router-dom";
 import logo from "../assets/Rhapsody Signal Navbar.png";
@@ -10,6 +11,8 @@ function Navbar() {
             </Link>
 
             <ul className="link-names">
+                
+
                 <li>
                     <Link to="/about" className="nav-link">
                         About the project

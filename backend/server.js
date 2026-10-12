@@ -1,21 +1,21 @@
+
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
-
 const { spawn } = require("child_process");
-// spawn lets your Node server run programs outside of Node itself.
-let uploadedFilePath = null;
+
 const app = express();
+
+let uploadedFilePath = null;
 
 app.use(cors());
 app.use(express.json());
 
 const upload = multer({
-  dest: "uploads/",
-  // Creates a Multer configuration that stores uploaded files
-  // in the uploads/ directory
+    dest: "uploads/",
 });
 
+// Upload Spotify CSV and retrieve artist names
 
 app.post("/upload", upload.single("file"), (req, res) => {
     if (!req.file) {
@@ -45,6 +45,8 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
     rProcess.on("error", (error) => {
         console.error("Failed to start R:", error);
+
+        if (responded) return;
         responded = true;
 
         return res.status(500).json({
@@ -64,14 +66,14 @@ app.post("/upload", upload.single("file"), (req, res) => {
         }
 
         try {
-const artists = JSON.parse(output);
+            const artists = JSON.parse(output);
 
-console.log("Number of artists:", artists.length);
+            console.log("Number of artists:", artists.length);
 
-return res.json({
-    message: "File processed successfully.",
-    artists: artists
-});
+            return res.json({
+                message: "File processed successfully.",
+                artists: artists
+            });
         } catch (error) {
             console.error("Could not parse R output:", output);
 
@@ -82,7 +84,7 @@ return res.json({
     });
 });
 
-///////////////////////////////////////////////////////
+// Analyze the originally selected artist
 
 app.post("/artist", (req, res) => {
     const artist = req.body.artist;
@@ -101,11 +103,13 @@ app.post("/artist", (req, res) => {
 
     const rProcess = spawn("Rscript", [
         "../analysis/artist.R",
-        uploadedFilePath, artist
+        uploadedFilePath,
+        artist
     ]);
 
     let output = "";
     let errorOutput = "";
+    let responded = false;
 
     rProcess.stdout.on("data", (data) => {
         output += data.toString();
@@ -118,12 +122,17 @@ app.post("/artist", (req, res) => {
     rProcess.on("error", (error) => {
         console.error("Failed to start R:", error);
 
+        if (responded) return;
+        responded = true;
+
         return res.status(500).json({
             error: "Could not start R."
         });
     });
 
     rProcess.on("close", (code) => {
+        if (responded) return;
+
         if (code !== 0) {
             console.error("R error:", errorOutput);
 
@@ -151,7 +160,91 @@ app.post("/artist", (req, res) => {
     });
 });
 
+// Compare two artists using monthly listening hours
+
+app.post("/versus", (req, res) => {
+    const { artist, opponent } = req.body;
+
+    if (!uploadedFilePath) {
+        return res.status(400).json({
+            error: "Please upload your Spotify CSV first."
+        });
+    }
+
+    if (!artist || !opponent) {
+        return res.status(400).json({
+            error: "Both artist names are required."
+        });
+    }
+
+    if (artist === opponent) {
+        return res.status(400).json({
+            error: "Please select two different artists."
+        });
+    }
+
+    const rProcess = spawn("Rscript", [
+        "../analysis/artist.R",
+        uploadedFilePath,
+        artist,
+        opponent
+    ]);
+
+    let output = "";
+    let errorOutput = "";
+    let responded = false;
+
+    rProcess.stdout.on("data", (data) => {
+        output += data.toString();
+    });
+
+    rProcess.stderr.on("data", (data) => {
+        errorOutput += data.toString();
+    });
+
+    rProcess.on("error", (error) => {
+        console.error("Failed to start R:", error);
+
+        if (responded) return;
+        responded = true;
+
+        return res.status(500).json({
+            error: "Could not start R."
+        });
+    });
+
+    rProcess.on("close", (code) => {
+        if (responded) return;
+
+        if (code !== 0) {
+            console.error("R error:", errorOutput);
+
+            return res.status(500).json({
+                error: "Artist comparison failed.",
+                details: errorOutput
+            });
+        }
+
+        try {
+            const result = JSON.parse(output);
+
+            return res.json({
+                message: "Artist comparison completed successfully.",
+                artist: artist,
+                opponent: opponent,
+                correlation: result.correlation,
+                correlationMonthly: result.correlationMonthly
+            });
+        } catch (error) {
+            console.error("Invalid JSON from R:", output);
+
+            return res.status(500).json({
+                error: "Could not parse R output."
+            });
+        }
+    });
+});
 
 app.listen(5000, () => {
-  console.log("Server running on port 5000");
+    console.log("Server running on port 5000");
 });

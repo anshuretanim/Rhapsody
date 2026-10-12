@@ -1,6 +1,15 @@
 
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./CalculationPage.css";
+
+const TIME_PERIODS = [
+    "Night",
+    "Morning",
+    "Afternoon",
+    "Evening",
+    "Late Evening",
+];
 
 function StatCard({ label, value, detail }) {
     return (
@@ -53,12 +62,138 @@ function ListeningBars({ data, suffix = "hours" }) {
     );
 }
 
+function ListeningHeatmap({ data }) {
+    const months = Object.entries(data || {}).sort(
+        ([monthA], [monthB]) => monthA.localeCompare(monthB)
+    );
+
+    if (months.length === 0) {
+        return (
+            <p className="empty-chart">
+                No artist heatmap data available.
+            </p>
+        );
+    }
+
+    const getCount = (monthData, period) =>
+        Number(monthData?.[period]) || 0;
+
+    const maxCount = Math.max(
+        ...months.flatMap(([, monthData]) =>
+            TIME_PERIODS.map((period) => getCount(monthData, period))
+        ),
+        0
+    );
+
+    const getIntensity = (count) => {
+        if (count === 0 || maxCount === 0) {
+            return 0;
+        }
+
+        return Math.max(1, Math.ceil((count / maxCount) * 5));
+    };
+
+    return (
+        <div className="heatmap-wrapper">
+            <div
+                className="listening-heatmap"
+                role="table"
+                aria-label="Selected artist listening records by month and time of day"
+            >
+                <div className="heatmap-row heatmap-header" role="row">
+                    <div
+                        className="heatmap-month-label"
+                        role="columnheader"
+                    >
+                        MONTH
+                    </div>
+
+                    {TIME_PERIODS.map((period) => (
+                        <div
+                            className="heatmap-period-label"
+                            role="columnheader"
+                            key={period}
+                        >
+                            {period}
+                        </div>
+                    ))}
+                </div>
+
+                {months.map(([month, monthData]) => (
+                    <div
+                        className="heatmap-row"
+                        role="row"
+                        key={month}
+                    >
+                        <div
+                            className="heatmap-month-label"
+                            role="rowheader"
+                        >
+                            {month}
+                        </div>
+
+                        {TIME_PERIODS.map((period) => {
+                            const count = getCount(monthData, period);
+                            const intensity = getIntensity(count);
+
+                            return (
+                                <div
+                                    className="heatmap-cell-container"
+                                    role="cell"
+                                    key={period}
+                                >
+                                    <div
+                                        className={`heatmap-cell intensity-${intensity}`}
+                                        title={`${month} · ${period}: ${count} recorded track entries`}
+                                        aria-label={`${month}, ${period}: ${count} recorded track entries`}
+                                    >
+                                        <span>{count}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
+
+            <div className="heatmap-legend">
+                <span>FEWER RECORDS</span>
+
+                <div className="heatmap-legend-colors">
+                    {[0, 1, 2, 3, 4, 5].map((intensity) => (
+                        <span
+                            key={intensity}
+                            className={`heatmap-legend-cell intensity-${intensity}`}
+                        />
+                    ))}
+                </div>
+
+                <span>MORE RECORDS</span>
+            </div>
+
+            <p className="heatmap-note">
+                Each cell shows the number of recorded track entries for
+                that month and time period. Color intensity is relative to
+                the highest count in this heatmap.
+            </p>
+        </div>
+    );
+}
+
 function CalculationPage() {
     const location = useLocation();
     const navigate = useNavigate();
 
     const selectedArtist = location.state?.artist || "";
     const stats = location.state?.statistics;
+
+    const artists = location.state?.artists || [];
+
+    const [opponent, setOpponent] = useState("");
+
+    const opponentArtists = artists.filter(
+        (artist) => artist && artist !== selectedArtist
+    );
 
     if (!stats) {
         return (
@@ -68,7 +203,9 @@ function CalculationPage() {
                 <div className="calculation-empty">
                     <span className="empty-icon">♫</span>
                     <p className="section-eyebrow">RHAPSODY / ANALYSIS</p>
-                    <h1>Nothing playing <span>yet.</span></h1>
+                    <h1>
+                        Nothing playing <span>yet.</span>
+                    </h1>
                     <p>
                         No statistics were found. Upload your Spotify CSV
                         and select an artist to generate your listening report.
@@ -89,12 +226,15 @@ function CalculationPage() {
         value == null ? "N/A" : Number(value).toLocaleString();
 
     const formatHours = (value) =>
-        value == null ? "N/A" : `${Number(value).toLocaleString()} h`;
+        value == null
+            ? "N/A"
+            : `${Number(value).toLocaleString()} h`;
 
     const formatPercent = (value) =>
         value == null ? "N/A" : `${value}%`;
 
     const timeOfDay = stats.playsByTime || {};
+
     const totalTimeOfDayPlays = Object.values(timeOfDay).reduce(
         (total, value) => total + (Number(value) || 0),
         0
@@ -110,7 +250,6 @@ function CalculationPage() {
                         className="calculation-brand"
                         onClick={() => navigate("/")}
                     >
-                        
                         <span>RHAPSODY</span>
                     </button>
 
@@ -151,7 +290,9 @@ function CalculationPage() {
                 <section className="report-section">
                     <div className="section-heading">
                         <div>
-                            <p className="section-eyebrow">THE BIG PICTURE</p>
+                            <p className="section-eyebrow">
+                                THE BIG PICTURE
+                            </p>
                             <h2>Your listening habits</h2>
                         </div>
                         <span className="section-index">01 / OVERVIEW</span>
@@ -256,17 +397,19 @@ function CalculationPage() {
                                 <p className="stat-label">
                                     YOUR MOST-PLAYED TRACK
                                 </p>
-                                <h3>{stats.artistFavouriteSong || "Unknown"}</h3>
+                                <h3>
+                                    {stats.artistFavouriteSong || "Unknown"}
+                                </h3>
                             </div>
                         </article>
 
                         <article className="favourite-card">
                             <span className="favourite-icon">▤</span>
                             <div>
-                                <p className="stat-label">
-                                    YOUR TOP ALBUM
-                                </p>
-                                <h3>{stats.artistFavouriteAlbum || "Unknown"}</h3>
+                                <p className="stat-label">YOUR TOP ALBUM</p>
+                                <h3>
+                                    {stats.artistFavouriteAlbum || "Unknown"}
+                                </h3>
                             </div>
                         </article>
                     </div>
@@ -315,10 +458,14 @@ function CalculationPage() {
                 <section className="report-section">
                     <div className="section-heading">
                         <div>
-                            <p className="section-eyebrow">YOUR DAILY RHYTHM</p>
+                            <p className="section-eyebrow">
+                                YOUR DAILY RHYTHM
+                            </p>
                             <h2>When you press play</h2>
                         </div>
-                        <span className="section-index">04 / TIME OF DAY</span>
+                        <span className="section-index">
+                            04 / TIME OF DAY
+                        </span>
                     </div>
 
                     <article className="chart-card time-chart-card">
@@ -338,6 +485,96 @@ function CalculationPage() {
                             suffix="plays"
                         />
                     </article>
+                </section>
+
+                <section className="report-section">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-eyebrow">
+                                YOUR LISTENING PATTERNS
+                            </p>
+                            <h2>{selectedArtist}, by the hour</h2>
+                        </div>
+                        <span className="section-index">
+                            05 / LISTENING HEATMAP
+                        </span>
+                    </div>
+
+                    <article className="chart-card heatmap-chart-card">
+                        <div className="chart-card-heading">
+                            <div>
+                                <h3>When you listen to {selectedArtist}</h3>
+                                <p>
+                                    Monthly track entries across five
+                                    time periods
+                                </p>
+                            </div>
+                            <span className="chart-icon">▦</span>
+                        </div>
+
+                        <ListeningHeatmap data={stats.artistHeatmap} />
+                    </article>
+                </section>
+
+                <section className="versus-prompt-section">
+                    <p className="section-eyebrow">
+                        THE ULTIMATE SHOWDOWN
+                    </p>
+
+                    <h2>
+                        Want to make this artist{" "}
+                        <span>compete with others?</span>
+                    </h2>
+
+                    <p className="versus-prompt-description">
+                        Pick another artist and see how your listening habits
+                        compare.
+                    </p>
+
+                    {opponentArtists.length > 0 ? (
+                        <div className="versus-controls">
+                            <select
+                                className="versus-artist-select"
+                                value={opponent}
+                                onChange={(event) =>
+                                    setOpponent(event.target.value)
+                                }
+                                aria-label="Select an artist to compete against"
+                            >
+                                <option value="">
+                                    Choose an opponent
+                                </option>
+
+                                {opponentArtists.map((artist) => (
+                                    <option key={artist} value={artist}>
+                                        {artist}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <button
+                                className="versus-button"
+                                disabled={!opponent}
+                                onClick={() =>
+                                    navigate("/versus", {
+                                        state: {
+                                            artist: selectedArtist,
+                                            opponent,
+                                            artists,
+                                        },
+                                    })
+                                }
+                            >
+                                VERSUS <span>↗</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <p className="versus-prompt-description">
+                            No other artists found. Make sure the artist list
+                            is passed to this page after uploading your Spotify
+                            CSV.
+                        </p>
+                    )}
                 </section>
 
                 <footer className="calculation-footer">

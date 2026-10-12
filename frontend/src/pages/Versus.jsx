@@ -1,0 +1,754 @@
+
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+function Versus() {
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const artist = location.state?.artist;
+    const opponent = location.state?.opponent;
+
+    const [comparison, setComparison] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (!artist || !opponent) {
+            setError(
+                "Artist information is missing. Please return to your report and select both artists."
+            );
+            setLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+
+        async function fetchComparison() {
+            setLoading(true);
+            setError("");
+            setComparison(null);
+
+            try {
+                const response = await fetch(
+                    "http://localhost:5000/versus",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            artist,
+                            opponent,
+                        }),
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.error || "Could not calculate the correlation."
+                    );
+                }
+
+                if (!cancelled) {
+                    setComparison(result);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(
+                        err.message ||
+                            "Something went wrong while comparing the artists."
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        fetchComparison();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [artist, opponent]);
+
+    const monthlyData = comparison?.correlationMonthly || [];
+    const correlation = comparison?.correlation;
+
+    function getCorrelationLabel(value) {
+        if (value === null || value === undefined) {
+            return "Not enough variation to calculate";
+        }
+
+        if (value >= 0.7) {
+            return "Strong positive relationship";
+        }
+
+        if (value >= 0.3) {
+            return "Moderate positive relationship";
+        }
+
+        if (value > -0.3) {
+            return "Little or no linear relationship";
+        }
+
+        if (value > -0.7) {
+            return "Moderate negative relationship";
+        }
+
+        return "Strong negative relationship";
+    }
+
+    function formatMonth(month) {
+        const [year, monthNumber] = month.split("-").map(Number);
+
+        return new Date(
+            Date.UTC(year, monthNumber - 1, 1)
+        ).toLocaleDateString("en-US", {
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC",
+        });
+    }
+
+    const chartWidth = 760;
+    const chartHeight = 460;
+
+    const plotLeft = 80;
+    const plotRight = 725;
+    const plotTop = 30;
+    const plotBottom = 370;
+
+    const plotWidth = plotRight - plotLeft;
+    const plotHeight = plotBottom - plotTop;
+
+    const maxHours = Math.max(
+        1,
+        ...monthlyData.map((item) =>
+            Math.max(
+                Number(item.artistHours) || 0,
+                Number(item.opponentHours) || 0
+            )
+        )
+    );
+
+    const axisMax = Math.ceil(maxHours * 1.1);
+    const tickCount = 5;
+
+    const xPosition = (hours) =>
+        plotLeft + (hours / axisMax) * plotWidth;
+
+    const yPosition = (hours) =>
+        plotBottom - (hours / axisMax) * plotHeight;
+
+    const axisTicks = Array.from(
+        { length: tickCount + 1 },
+        (_, index) => (axisMax / tickCount) * index
+    );
+
+    const formatHours = (value) =>
+        Number(value).toLocaleString("en-US", {
+            maximumFractionDigits: 2,
+        });
+
+    const pageStyle = {
+        minHeight: "100vh",
+        background: "#090909",
+        color: "#f5f5f5",
+        padding: "36px 20px 60px",
+        boxSizing: "border-box",
+        fontFamily: "Manrope, sans-serif",
+    };
+
+    const containerStyle = {
+        width: "100%",
+        maxWidth: "1050px",
+        margin: "0 auto",
+    };
+
+    const panelStyle = {
+        background: "linear-gradient(145deg, #171717, #101010)",
+        border: "1px solid #292929",
+        borderRadius: "16px",
+        padding: "clamp(18px, 4vw, 36px)",
+        marginTop: "24px",
+    };
+
+    const buttonStyle = {
+        background: "#1ed760",
+        color: "#090909",
+        border: "none",
+        borderRadius: "8px",
+        padding: "12px 18px",
+        fontSize: "12px",
+        fontWeight: 800,
+        letterSpacing: "1px",
+        cursor: "pointer",
+    };
+
+    return (
+        <main style={pageStyle}>
+            <div style={containerStyle}>
+                <button
+                    style={{
+                        ...buttonStyle,
+                        background: "transparent",
+                        color: "#1ed760",
+                        border: "1px solid #333",
+                    }}
+                    onClick={() => navigate(-1)}
+                >
+                    ← BACK TO REPORT
+                </button>
+
+                <header
+                    style={{
+                        textAlign: "center",
+                        padding: "48px 0 20px",
+                    }}
+                >
+                    <p
+                        style={{
+                            color: "#1ed760",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            letterSpacing: "3px",
+                        }}
+                    >
+                        THE ULTIMATE SHOWDOWN
+                    </p>
+
+                    <h1
+                        style={{
+                            fontSize: "clamp(30px, 6vw, 54px)",
+                            fontWeight: 800,
+                            letterSpacing: "-2px",
+                            lineHeight: 1.15,
+                            overflowWrap: "anywhere",
+                        }}
+                    >
+                        ARTIST <span style={{ color: "#1ed760" }}>VS</span>{" "}
+                        ARTIST
+                    </h1>
+
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexWrap: "wrap",
+                            gap: "14px",
+                            marginTop: "24px",
+                        }}
+                    >
+                        <div
+                            style={{
+                                padding: "14px 20px",
+                                border: "1px solid #333",
+                                borderRadius: "10px",
+                                background: "#151515",
+                                maxWidth: "100%",
+                                overflowWrap: "anywhere",
+                                fontWeight: 700,
+                            }}
+                        >
+                            {artist || "Artist A"}
+                        </div>
+
+                        <span
+                            style={{
+                                color: "#1ed760",
+                                fontSize: "20px",
+                                fontWeight: 900,
+                            }}
+                        >
+                            VS
+                        </span>
+
+                        <div
+                            style={{
+                                padding: "14px 20px",
+                                border: "1px solid #333",
+                                borderRadius: "10px",
+                                background: "#151515",
+                                maxWidth: "100%",
+                                overflowWrap: "anywhere",
+                                fontWeight: 700,
+                            }}
+                        >
+                            {opponent || "Artist B"}
+                        </div>
+                    </div>
+                </header>
+
+                {loading && (
+                    <section
+                        style={{
+                            ...panelStyle,
+                            textAlign: "center",
+                            padding: "60px 20px",
+                        }}
+                    >
+                        <div
+                            style={{
+                                color: "#1ed760",
+                                fontSize: "32px",
+                                marginBottom: "16px",
+                            }}
+                        >
+                            ♪
+                        </div>
+
+                        <h2>Analyzing your listening history...</h2>
+
+                        <p style={{ color: "#999", lineHeight: 1.7 }}>
+                            Calculating monthly listening hours and Pearson's
+                            correlation coefficient.
+                        </p>
+                    </section>
+                )}
+
+                {!loading && error && (
+                    <section
+                        style={{
+                            ...panelStyle,
+                            textAlign: "center",
+                        }}
+                    >
+                        <h2 style={{ color: "#ff7777" }}>
+                            Comparison failed
+                        </h2>
+
+                        <p style={{ color: "#aaa", lineHeight: 1.7 }}>
+                            {error}
+                        </p>
+
+                        <button
+                            style={buttonStyle}
+                            onClick={() => navigate(-1)}
+                        >
+                            RETURN TO REPORT
+                        </button>
+                    </section>
+                )}
+
+                {!loading && !error && comparison && (
+                    <>
+                        <section style={panelStyle}>
+                            <p
+                                style={{
+                                    color: "#999",
+                                    fontSize: "11px",
+                                    fontWeight: 800,
+                                    letterSpacing: "2px",
+                                }}
+                            >
+                                PEARSON CORRELATION COEFFICIENT
+                            </p>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    flexWrap: "wrap",
+                                    gap: "20px",
+                                    marginTop: "18px",
+                                }}
+                            >
+                                <div>
+                                    <div
+                                        style={{
+                                            fontSize: "clamp(42px, 9vw, 72px)",
+                                            fontWeight: 900,
+                                            letterSpacing: "-3px",
+                                            color:
+                                                correlation == null
+                                                    ? "#888"
+                                                    : correlation > 0
+                                                      ? "#1ed760"
+                                                      : correlation < 0
+                                                        ? "#ff7777"
+                                                        : "#f5f5f5",
+                                        }}
+                                    >
+                                        {correlation == null
+                                            ? "N/A"
+                                            : Number(correlation).toFixed(4)}
+                                    </div>
+
+                                    <p
+                                        style={{
+                                            color: "#ddd",
+                                            fontSize: "16px",
+                                            fontWeight: 700,
+                                            marginTop: "4px",
+                                        }}
+                                    >
+                                        {getCorrelationLabel(correlation)}
+                                    </p>
+                                </div>
+
+                                <div
+                                    style={{
+                                        color: "#888",
+                                        fontSize: "13px",
+                                        lineHeight: 1.8,
+                                        maxWidth: "340px",
+                                    }}
+                                >
+                                    Pearson's r measures how closely the
+                                    artists' monthly listening hours follow a
+                                    linear relationship. It does not measure
+                                    causation.
+                                </div>
+                            </div>
+
+                            <div
+                                style={{
+                                    marginTop: "28px",
+                                    height: "8px",
+                                    borderRadius: "10px",
+                                    background:
+                                        "linear-gradient(to right, #ff7777, #777, #1ed760)",
+                                    position: "relative",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        position: "absolute",
+                                        left:
+                                            correlation == null
+                                                ? "50%"
+                                                : `${((Number(correlation) + 1) / 2) * 100}%`,
+                                        top: "-5px",
+                                        width: "4px",
+                                        height: "18px",
+                                        borderRadius: "3px",
+                                        background: "#fff",
+                                        transform: "translateX(-50%)",
+                                    }}
+                                />
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    color: "#888",
+                                    fontSize: "11px",
+                                    marginTop: "10px",
+                                }}
+                            >
+                                <span>-1 · Negative</span>
+                                <span>0 · No linear relationship</span>
+                                <span>+1 · Positive</span>
+                            </div>
+                        </section>
+
+                        <section style={panelStyle}>
+                            <h2
+                                style={{
+                                    fontSize: "22px",
+                                    fontWeight: 800,
+                                    marginTop: 0,
+                                }}
+                            >
+                                Monthly listening correlation
+                            </h2>
+
+                            <p
+                                style={{
+                                    color: "#999",
+                                    fontSize: "13px",
+                                    lineHeight: 1.7,
+                                    marginBottom: "26px",
+                                }}
+                            >
+                                Each dot represents one month. Months with
+                                higher values for both artists appear toward
+                                the top-right of the graph.
+                            </p>
+
+                            {monthlyData.length === 0 ? (
+                                <p style={{ color: "#999" }}>
+                                    No monthly comparison data is available.
+                                </p>
+                            ) : (
+                                <>
+                                    <div
+                                        style={{
+                                            width: "100%",
+                                            overflowX: "auto",
+                                        }}
+                                    >
+                                        <svg
+                                            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                                            role="img"
+                                            aria-label={`Scatter plot comparing monthly listening hours for ${artist} and ${opponent}`}
+                                            style={{
+                                                width: "100%",
+                                                minWidth: "320px",
+                                                display: "block",
+                                                overflow: "visible",
+                                            }}
+                                        >
+                                            {axisTicks.map((tick, index) => (
+                                                <g key={index}>
+                                                    <line
+                                                        x1={plotLeft}
+                                                        y1={yPosition(tick)}
+                                                        x2={plotRight}
+                                                        y2={yPosition(tick)}
+                                                        stroke="#292929"
+                                                        strokeWidth="1"
+                                                    />
+
+                                                    <line
+                                                        x1={xPosition(tick)}
+                                                        y1={plotTop}
+                                                        x2={xPosition(tick)}
+                                                        y2={plotBottom}
+                                                        stroke="#242424"
+                                                        strokeWidth="1"
+                                                    />
+
+                                                    <text
+                                                        x={plotLeft - 12}
+                                                        y={yPosition(tick) + 4}
+                                                        fill="#999"
+                                                        fontSize="11"
+                                                        textAnchor="end"
+                                                    >
+                                                        {formatHours(tick)}
+                                                    </text>
+
+                                                    <text
+                                                        x={xPosition(tick)}
+                                                        y={plotBottom + 22}
+                                                        fill="#999"
+                                                        fontSize="11"
+                                                        textAnchor="middle"
+                                                    >
+                                                        {formatHours(tick)}
+                                                    </text>
+                                                </g>
+                                            ))}
+
+                                            <line
+                                                x1={plotLeft}
+                                                y1={plotTop}
+                                                x2={plotLeft}
+                                                y2={plotBottom}
+                                                stroke="#666"
+                                            />
+
+                                            <line
+                                                x1={plotLeft}
+                                                y1={plotBottom}
+                                                x2={plotRight}
+                                                y2={plotBottom}
+                                                stroke="#666"
+                                            />
+
+                                            {monthlyData.map((item) => (
+                                                <circle
+                                                    key={item.month}
+                                                    cx={xPosition(
+                                                        Number(item.artistHours) || 0
+                                                    )}
+                                                    cy={yPosition(
+                                                        Number(item.opponentHours) || 0
+                                                    )}
+                                                    r="5"
+                                                    fill="#1ed760"
+                                                    stroke="#090909"
+                                                    strokeWidth="1.5"
+                                                >
+                                                    <title>
+                                                        {formatMonth(item.month)}
+                                                        {" | "}
+                                                        {artist}:{" "}
+                                                        {formatHours(item.artistHours)}{" "}
+                                                        hours
+                                                        {" | "}
+                                                        {opponent}:{" "}
+                                                        {formatHours(item.opponentHours)}{" "}
+                                                        hours
+                                                    </title>
+                                                </circle>
+                                            ))}
+
+                                            <text
+                                                x={(plotLeft + plotRight) / 2}
+                                                y={chartHeight - 12}
+                                                fill="#f5f5f5"
+                                                fontSize="12"
+                                                textAnchor="middle"
+                                                fontWeight="600"
+                                            >
+                                                {artist} (hours)
+                                            </text>
+
+                                            <text
+                                                x="20"
+                                                y={(plotTop + plotBottom) / 2}
+                                                fill="#f5f5f5"
+                                                fontSize="12"
+                                                textAnchor="middle"
+                                                fontWeight="600"
+                                                transform={`rotate(-90 20 ${(plotTop + plotBottom) / 2})`}
+                                            >
+                                                {opponent} (hours)
+                                            </text>
+                                        </svg>
+                                    </div>
+
+                                    <p
+                                        style={{
+                                            color: "#777",
+                                            fontSize: "12px",
+                                            lineHeight: 1.7,
+                                            marginTop: "18px",
+                                        }}
+                                    >
+                                        Hover over a dot to see its month and
+                                        listening hours. Both axes use the same
+                                        scale for easier comparison.
+                                    </p>
+                                </>
+                            )}
+                        </section>
+
+                        <section style={panelStyle}>
+                            <h2
+                                style={{
+                                    fontSize: "22px",
+                                    fontWeight: 800,
+                                    marginTop: 0,
+                                }}
+                            >
+                                Monthly breakdown
+                            </h2>
+
+                            <p
+                                style={{
+                                    color: "#999",
+                                    fontSize: "13px",
+                                    lineHeight: 1.7,
+                                }}
+                            >
+                                Listening hours for both artists, month by
+                                month.
+                            </p>
+
+                            <div
+                                style={{
+                                    width: "100%",
+                                    overflowX: "auto",
+                                    marginTop: "20px",
+                                }}
+                            >
+                                <table
+                                    style={{
+                                        width: "100%",
+                                        minWidth: "430px",
+                                        borderCollapse: "collapse",
+                                        textAlign: "left",
+                                        fontSize: "13px",
+                                    }}
+                                >
+                                    <thead>
+                                        <tr style={{ color: "#999" }}>
+                                            <th style={tableCellStyle}>
+                                                Month
+                                            </th>
+
+                                            <th style={tableCellStyle}>
+                                                {artist}
+                                            </th>
+
+                                            <th style={tableCellStyle}>
+                                                {opponent}
+                                            </th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {monthlyData.map((item) => (
+                                            <tr key={item.month}>
+                                                <td style={tableCellStyle}>
+                                                    {formatMonth(item.month)}
+                                                </td>
+
+                                                <td
+                                                    style={{
+                                                        ...tableCellStyle,
+                                                        color: "#1ed760",
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    {formatHours(item.artistHours)}{" "}
+                                                    h
+                                                </td>
+
+                                                <td
+                                                    style={{
+                                                        ...tableCellStyle,
+                                                        color: "#f5f5f5",
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    {formatHours(item.opponentHours)}{" "}
+                                                    h
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section
+                            style={{
+                                textAlign: "center",
+                                padding: "32px 10px 10px",
+                                color: "#888",
+                                fontSize: "12px",
+                                lineHeight: 1.8,
+                            }}
+                        >
+                            <p>
+                                Correlation is not causation. Two artists'
+                                listening patterns can move together without
+                                either one causing the other.
+                            </p>
+
+                            <button
+                                style={{
+                                    ...buttonStyle,
+                                    marginTop: "18px",
+                                }}
+                                onClick={() => navigate(-1)}
+                            >
+                                BACK TO YOUR REPORT
+                            </button>
+                        </section>
+                    </>
+                )}
+            </div>
+        </main>
+    );
+}
+
+const tableCellStyle = {
+    padding: "15px 12px",
+    borderBottom: "1px solid #292929",
+    overflowWrap: "anywhere",
+};
+
+export default Versus;
