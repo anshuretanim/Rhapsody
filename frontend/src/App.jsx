@@ -5,7 +5,7 @@ import About from "./pages/About";
 import ChoosingPage from "./pages/ChoosingPage";
 import CalculationPage from "./pages/CalculationPage";
 import Versus from "./pages/Versus";
-
+import RankingPage from "./pages/RankingPage";
 function App() {
   return (
     <div>
@@ -18,6 +18,7 @@ function App() {
           <Route path="/choosing" element={<ChoosingPage />} />
           <Route path="/calculation" element={<CalculationPage />} />
           <Route path="/versus" element={<Versus />} />
+          <Route path="/ranking" element={<RankingPage />} />
         </Routes>
       </BrowserRouter>
     </div>

@@ -186,7 +186,6 @@ function CalculationPage() {
 
     const selectedArtist = location.state?.artist || "";
     const stats = location.state?.statistics;
-
     const artists = location.state?.artists || [];
 
     const [opponent, setOpponent] = useState("");
@@ -203,9 +202,11 @@ function CalculationPage() {
                 <div className="calculation-empty">
                     <span className="empty-icon">♫</span>
                     <p className="section-eyebrow">RHAPSODY / ANALYSIS</p>
+
                     <h1>
                         Nothing playing <span>yet.</span>
                     </h1>
+
                     <p>
                         No statistics were found. Upload your Spotify CSV
                         and select an artist to generate your listening report.
@@ -277,7 +278,9 @@ function CalculationPage() {
                             <p className="artist-hero-label">
                                 YOUR SELECTED HEADLINER
                             </p>
+
                             <h2>{selectedArtist}</h2>
+
                             <p className="artist-hero-caption">
                                 A closer look at your listening habits.
                             </p>
@@ -295,6 +298,7 @@ function CalculationPage() {
                             </p>
                             <h2>Your listening habits</h2>
                         </div>
+
                         <span className="section-index">01 / OVERVIEW</span>
                     </div>
 
@@ -337,6 +341,7 @@ function CalculationPage() {
                             </p>
                             <h2>You and {selectedArtist}</h2>
                         </div>
+
                         <span className="section-index">02 / ARTIST</span>
                     </div>
 
@@ -393,6 +398,7 @@ function CalculationPage() {
                     <div className="favourites-grid">
                         <article className="favourite-card">
                             <span className="favourite-icon">♫</span>
+
                             <div>
                                 <p className="stat-label">
                                     YOUR MOST-PLAYED TRACK
@@ -405,6 +411,7 @@ function CalculationPage() {
 
                         <article className="favourite-card">
                             <span className="favourite-icon">▤</span>
+
                             <div>
                                 <p className="stat-label">YOUR TOP ALBUM</p>
                                 <h3>
@@ -421,6 +428,7 @@ function CalculationPage() {
                             <p className="section-eyebrow">OVER TIME</p>
                             <h2>When the music happens</h2>
                         </div>
+
                         <span className="section-index">03 / TIMELINE</span>
                     </div>
 
@@ -431,12 +439,11 @@ function CalculationPage() {
                                     <h3>Monthly listening</h3>
                                     <p>All artists · hours listened</p>
                                 </div>
+
                                 <span className="chart-icon">↗</span>
                             </div>
 
-                            <ListeningBars
-                                data={stats.monthlyListening}
-                            />
+                            <ListeningBars data={stats.monthlyListening} />
                         </article>
 
                         <article className="chart-card">
@@ -445,6 +452,7 @@ function CalculationPage() {
                                     <h3>{selectedArtist}</h3>
                                     <p>Monthly listening · hours</p>
                                 </div>
+
                                 <span className="chart-icon">♫</span>
                             </div>
 
@@ -463,6 +471,7 @@ function CalculationPage() {
                             </p>
                             <h2>When you press play</h2>
                         </div>
+
                         <span className="section-index">
                             04 / TIME OF DAY
                         </span>
@@ -477,6 +486,7 @@ function CalculationPage() {
                                     track entries
                                 </p>
                             </div>
+
                             <span className="chart-icon">◷</span>
                         </div>
 
@@ -495,6 +505,7 @@ function CalculationPage() {
                             </p>
                             <h2>{selectedArtist}, by the hour</h2>
                         </div>
+
                         <span className="section-index">
                             05 / LISTENING HEATMAP
                         </span>
@@ -509,10 +520,60 @@ function CalculationPage() {
                                     time periods
                                 </p>
                             </div>
+
                             <span className="chart-icon">▦</span>
                         </div>
 
                         <ListeningHeatmap data={stats.artistHeatmap} />
+                    </article>
+                </section>
+
+                <section className="report-section ranking-prompt-section">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-eyebrow">
+                                BEYOND THE MOST PLAYED
+                            </p>
+                            <h2>Your music, ranked differently</h2>
+                        </div>
+
+                        <span className="section-index">
+                            06 / SONG RANKING
+                        </span>
+                    </div>
+
+                    <article className="ranking-prompt-card">
+                        <div
+                            className="ranking-prompt-icon"
+                            aria-hidden="true"
+                        >
+                            ♬
+                        </div>
+
+                        <div className="ranking-prompt-content">
+                            <p className="stat-label">
+                                A LITTLE STATISTICAL INVESTIGATION
+                            </p>
+
+                            <h3>
+                                Which songs actually define your listening?
+                            </h3>
+
+                            <p>
+                                Go beyond raw play counts. Rank songs using
+                                listening consistency, completion rates, and
+                                months of activity to uncover tracks that
+                                deserve more credit than their play counts
+                                suggest.
+                            </p>
+
+                            <button
+                                className="ranking-button"
+                                onClick={() => navigate("/ranking")}
+                            >
+                                RANK MY SONGS <span>↗</span>
+                            </button>
+                        </div>
                     </article>
                 </section>
 
@@ -579,10 +640,12 @@ function CalculationPage() {
 
                 <footer className="calculation-footer">
                     <span>RHAPSODY © 2026</span>
+
                     <span>
                         <span className="footer-dot" />
                         BUILT AROUND YOUR LISTENING HISTORY
                     </span>
+
                     <button
                         className="footer-back-button"
                         onClick={() => navigate("/")}

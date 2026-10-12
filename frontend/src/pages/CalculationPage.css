@@ -1115,3 +1115,92 @@
     }
 }
 
+.ranking-prompt-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 2.4rem;
+    padding: 3.2rem;
+    border: 1px solid rgba(30, 215, 96, 0.25);
+    border-radius: 1.6rem;
+    background: linear-gradient(
+        135deg,
+        rgba(30, 215, 96, 0.09),
+        rgba(255, 255, 255, 0.02)
+    );
+}
+
+.ranking-prompt-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 5.6rem;
+    height: 5.6rem;
+    border-radius: 1.2rem;
+    background: rgba(30, 215, 96, 0.12);
+    color: #1ed760;
+    font-size: 3rem;
+}
+
+.ranking-prompt-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.ranking-prompt-content h3 {
+    margin: 0.8rem 0 1rem;
+    color: #f5f5f5;
+    font-size: 2.2rem;
+    line-height: 1.4;
+}
+
+.ranking-prompt-content > p:not(.stat-label) {
+    max-width: 65rem;
+    margin: 0 0 2rem;
+    color: #a5a5a5;
+    font-size: 1.45rem;
+    line-height: 1.8;
+}
+
+.ranking-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2rem;
+    padding: 1.3rem 2rem;
+    border: none;
+    border-radius: 0.6rem;
+    background: #1ed760;
+    color: #101010;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.08rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.ranking-button:hover {
+    background: #36e878;
+    transform: translateY(-2px);
+}
+
+.ranking-button:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 4px;
+}
+
+@media (max-width: 600px) {
+    .ranking-prompt-card {
+        flex-direction: column;
+        gap: 1.6rem;
+        padding: 2rem;
+    }
+
+    .ranking-prompt-content h3 {
+        font-size: 1.9rem;
+    }
+
+    .ranking-button {
+        width: 100%;
+    }
+}
+

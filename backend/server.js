@@ -245,6 +245,67 @@ app.post("/versus", (req, res) => {
     });
 });
 
+app.post("/ranking", (req, res) => {
+    if (!uploadedFilePath) {
+        return res.status(400).json({
+            error: "Please upload your Spotify CSV first."
+        });
+    }
+
+    const rProcess = spawn("Rscript", [
+        "../analysis/ranking.R",
+        uploadedFilePath
+    ]);
+
+    let output = "";
+    let errorOutput = "";
+    let responded = false;
+
+    rProcess.stdout.on("data", (data) => {
+        output += data.toString();
+    });
+
+    rProcess.stderr.on("data", (data) => {
+        errorOutput += data.toString();
+    });
+
+    rProcess.on("error", (error) => {
+        if (responded) return;
+        responded = true;
+
+        console.error("Failed to start ranking script:", error);
+
+        return res.status(500).json({
+            error: "Could not start the R ranking script."
+        });
+    });
+
+    rProcess.on("close", (code) => {
+        if (responded) return;
+
+        if (code !== 0) {
+            console.error("Ranking script failed:", errorOutput);
+
+            return res.status(500).json({
+                error: "Song ranking failed.",
+                details: errorOutput
+            });
+        }
+
+        try {
+            const result = JSON.parse(output);
+            return res.json(result);
+        } catch (error) {
+            console.error("Invalid JSON from ranking script:", output);
+
+            return res.status(500).json({
+                error: "Could not parse ranking results."
+            });
+        }
+    });
+});
+
+
 app.listen(5000, () => {
     console.log("Server running on port 5000");
 });

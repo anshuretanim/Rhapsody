@@ -1,0 +1,277 @@
+
+.ranking-page {
+    min-height: 100vh;
+    padding: 3.2rem 2rem 5rem;
+    background: #101010;
+    color: #f5f5f5;
+    font-family: "Manrope", sans-serif;
+}
+
+.ranking-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.ranking-back-button {
+    margin-bottom: 3rem;
+    padding: 0.8rem 1.2rem;
+    border: 1px solid #383838;
+    border-radius: 8px;
+    background: transparent;
+    color: #f5f5f5;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.ranking-back-button:hover {
+    background: #242424;
+}
+
+.ranking-header {
+    margin-bottom: 3rem;
+}
+
+.ranking-eyebrow {
+    color: #1ed760;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+}
+
+.ranking-header h1 {
+    margin: 1rem 0;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.05em;
+}
+
+.ranking-subtitle {
+    max-width: 650px;
+    color: #a6a6a6;
+    font-size: 1.5rem;
+    line-height: 1.7;
+}
+
+.ranking-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.ranking-stat-card,
+.ranking-panel,
+.ranking-diagnostic-card {
+    border: 1px solid #303030;
+    border-radius: 14px;
+    background: #181818;
+}
+
+.ranking-stat-card {
+    padding: 2rem;
+}
+
+.ranking-stat-card p,
+.ranking-diagnostic-card p {
+    margin: 0;
+    color: #a6a6a6;
+    font-size: 1.3rem;
+}
+
+.ranking-stat-card h2 {
+    margin: 1rem 0 0;
+    font-size: 3rem;
+}
+
+.ranking-panel {
+    margin-bottom: 2rem;
+    padding: 2.4rem;
+}
+
+.ranking-panel h2 {
+    margin: 0 0 0.8rem;
+    font-size: 2.2rem;
+}
+
+.ranking-section-heading {
+    margin-bottom: 2rem;
+}
+
+.ranking-section-heading p,
+.ranking-panel-description {
+    color: #a6a6a6;
+    font-size: 1.3rem;
+    line-height: 1.6;
+}
+
+.ranking-table-wrapper {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.ranking-table th {
+    padding: 1.4rem 1.2rem;
+    border-bottom: 1px solid #383838;
+    color: #a6a6a6;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.ranking-table td {
+    padding: 1.5rem 1.2rem;
+    border-bottom: 1px solid #292929;
+    font-size: 1.3rem;
+}
+
+.ranking-table tbody tr {
+    transition: background 0.2s ease;
+}
+
+.ranking-table tbody tr:hover {
+    background: #222222;
+}
+
+.ranking-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.ranking-rank {
+    color: #1ed760;
+    font-weight: 700;
+}
+
+.ranking-track {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 700;
+}
+
+.ranking-score {
+    color: #1ed760;
+    font-weight: 700;
+}
+
+.ranking-diagnostics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.ranking-diagnostic-card {
+    padding: 1.8rem;
+}
+
+.ranking-diagnostic-card h3 {
+    margin: 1rem 0;
+    font-size: 2.5rem;
+}
+
+.ranking-diagnostic-card span {
+    color: #a6a6a6;
+    font-size: 1.2rem;
+    line-height: 1.6;
+}
+
+.ranking-footer {
+    padding: 1rem 0;
+    color: #929292;
+    font-size: 1.2rem;
+    line-height: 1.7;
+}
+
+.ranking-message {
+    display: flex;
+    min-height: 60vh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.ranking-message h2,
+.ranking-message h1 {
+    margin-bottom: 0.8rem;
+}
+
+.ranking-message p {
+    color: #a6a6a6;
+    line-height: 1.6;
+}
+
+.ranking-error {
+    color: #ff7373 !important;
+}
+
+.ranking-empty {
+    padding: 2rem 0;
+    color: #a6a6a6;
+}
+
+.ranking-button {
+    margin-top: 1rem;
+    padding: 1rem 1.6rem;
+    border: none;
+    border-radius: 8px;
+    background: #1ed760;
+    color: #101010;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ranking-loader {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 2rem;
+    border: 4px solid #383838;
+    border-top-color: #1ed760;
+    border-radius: 50%;
+    animation: ranking-spin 0.8s linear infinite;
+}
+
+@keyframes ranking-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 750px) {
+    .ranking-stats,
+    .ranking-diagnostics {
+        grid-template-columns: 1fr;
+    }
+
+    .ranking-page {
+        padding: 2rem 1.2rem 3rem;
+    }
+
+    .ranking-panel {
+        padding: 1.5rem;
+    }
+
+    .ranking-header h1 {
+        font-size: 3.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ranking-loader {
+        animation: none;
+    }
+
+    .ranking-back-button,
+    .ranking-table tbody tr {
+        transition: none;
+    }
+}
