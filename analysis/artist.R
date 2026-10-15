@@ -1,4 +1,3 @@
-
 library(jsonlite)
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -22,13 +21,14 @@ if (!is.null(opponent_artist) && selected_artist == opponent_artist) {
 
 data <- read.csv(file_path, stringsAsFactors = FALSE)
 
+# "skipped" is intentionally not required: skip rate is calculated from
+# reason_end when available, with "skipped" used only as a fallback.
 required_columns <- c(
   "ts",
   "ms_played",
   "master_metadata_track_name",
   "master_metadata_album_artist_name",
-  "master_metadata_album_album_name",
-  "skipped"
+  "master_metadata_album_album_name"
 )
 
 missing_columns <- setdiff(required_columns, names(data))
@@ -40,6 +40,46 @@ if (length(missing_columns) > 0) {
       paste(missing_columns, collapse = ", ")
     )
   )
+}
+
+if (!("reason_end" %in% names(data)) && !("skipped" %in% names(data))) {
+  stop("CSV needs either a reason_end or skipped column to calculate skip rate.")
+}
+
+# Skip rate helper
+#
+# Spotify's "skipped" column is often FALSE or empty for nearly every row
+# in the extended streaming history, which produces a skip rate of 0.
+# reason_end records how each play actually ended, so it is preferred.
+# A play counts as a skip when the user pressed the forward button.
+# If reason_end is unavailable or empty, fall back to "skipped".
+
+calc_skip_rate <- function(df) {
+
+  if ("reason_end" %in% names(df)) {
+
+    reason <- tolower(trimws(as.character(df$reason_end)))
+
+    known <- !is.na(reason) & reason != "" & reason != "na"
+
+    if (sum(known) > 0) {
+      return(mean(reason[known] == "fwdbtn") * 100)
+    }
+  }
+
+  if ("skipped" %in% names(df)) {
+
+    skipped <- tolower(trimws(as.character(df$skipped)))
+
+    valid <- !is.na(df$skipped) &
+      skipped %in% c("true", "false", "1", "0")
+
+    if (sum(valid) > 0) {
+      return(mean(skipped[valid] %in% c("true", "1")) * 100)
+    }
+  }
+
+  NA_real_
 }
 
 # Select listening records for the chosen artist
@@ -79,6 +119,7 @@ avg_seconds <- avg_ms / 1000
 
 song_counts <- sort(
   table(data$master_metadata_track_name[valid_tracks]),
+  #counts the frequency of unique values.
   decreasing = TRUE
 )
 
@@ -106,16 +147,7 @@ fav_album <- if (length(album_counts) > 0) {
 
 # Skip rate across all artists
 
-skipped_values <- tolower(trimws(as.character(data$skipped)))
-
-valid_skips <- !is.na(data$skipped) &
-  skipped_values %in% c("true", "false", "1", "0")
-
-skip_rate <- if (sum(valid_skips) > 0) {
-  mean(skipped_values[valid_skips] %in% c("true", "1")) * 100
-} else {
-  NA_real_
-}
+skip_rate <- calc_skip_rate(data)
 
 # Parse timestamps
 
@@ -238,20 +270,7 @@ artist_loyalty <- if (total_ms > 0) {
 
 # Selected artist skip rate
 
-artist_skipped_values <- tolower(
-  trimws(as.character(artist_data$skipped))
-)
-
-artist_valid_skips <- !is.na(artist_data$skipped) &
-  artist_skipped_values %in% c("true", "false", "1", "0")
-
-artist_skip_rate <- if (sum(artist_valid_skips) > 0) {
-  mean(
-    artist_skipped_values[artist_valid_skips] %in% c("true", "1")
-  ) * 100
-} else {
-  NA_real_
-}
+artist_skip_rate <- calc_skip_rate(artist_data)
 
 # Selected artist listening by month
 
@@ -296,6 +315,8 @@ artist_data$hour <- as.integer(
     tz = "Asia/Kolkata"
   )
 )
+
+#hour extracted ^
 
 artist_data$time_of_day <- cut(
   artist_data$hour,

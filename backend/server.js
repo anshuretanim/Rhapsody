@@ -144,7 +144,7 @@ app.post("/artist", (req, res) => {
 
         try {
             const statistics = JSON.parse(output);
-
+console.log("R artist skip rate:", statistics.artistSkipRate);
             return res.json({
                 message: "Analysis completed successfully.",
                 artist: artist,
