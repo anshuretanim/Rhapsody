@@ -38,12 +38,11 @@ Only plays of **30 seconds or longer** count as listens, which matches Spotify's
 
 ## ⚙️ How It Works
 
-1. The user uploads a Spotify history file, converted from Spotify's JSON export to CSV, through the React UI.
+1. The user uploads a Spotify history CSV file.
 2. Express and Multer receive the file and run the R scripts with the CSV path and the selected artist(s) as arguments.
 3. R cleans the data, computes the statistics and probabilities, and prints JSON.
 4. Node.js sends the JSON to the frontend, which renders the charts.
 
 ## 📥 Getting Your Data
 
-Request your data from Spotify at https://www.spotify.com/in-en/account/privacy/ and convert the JSON files to CSV.
-
+Request your data from Spotify at https://www.spotify.com/in-en/account/privacy/ and make sure to convert the received JSON files to CSV.
