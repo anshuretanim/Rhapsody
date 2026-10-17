@@ -2,27 +2,33 @@ library(jsonlite)
 
 args <- commandArgs(trailingOnly = TRUE)
 
+# Usage:
+#   Rscript artist.R <csv> <artist>              single-artist analysis
+#   Rscript artist.R <csv> <artist> <opponent>   adds versus comparison
+
 if (length(args) < 2) {
   stop("CSV file path and selected artist are required.")
 }
 
 file_path <- args[1]
 selected_artist <- args[2]
+opponent_artist <- if (length(args) >= 3 && nzchar(args[3])) args[3] else NULL
+has_opponent <- !is.null(opponent_artist)
 
-opponent_artist <- if (length(args) >= 3) {
-  args[3]
-} else {
-  NULL
-}
-
-if (!is.null(opponent_artist) && selected_artist == opponent_artist) {
+if (has_opponent && selected_artist == opponent_artist) {
   stop("Please select two different artists.")
 }
 
-data <- read.csv(file_path, stringsAsFactors = FALSE)
+# A play counts as a real "listen" if it lasted at least 30 seconds
+# (Spotify's own threshold for counting a stream).
+LISTEN_THRESHOLD_MS <- 30000
 
-# "skipped" is intentionally not required: skip rate is calculated from
-# reason_end when available, with "skipped" used only as a fallback.
+data <- read.csv(
+  file_path,
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
 required_columns <- c(
   "ts",
   "ms_played",
@@ -42,17 +48,16 @@ if (length(missing_columns) > 0) {
   )
 }
 
-if (!("reason_end" %in% names(data)) && !("skipped" %in% names(data))) {
+if (!("reason_end" %in% names(data)) &&
+    !("skipped" %in% names(data))) {
   stop("CSV needs either a reason_end or skipped column to calculate skip rate.")
 }
 
-# Skip rate helper
-#
-# Spotify's "skipped" column is often FALSE or empty for nearly every row
-# in the extended streaming history, which produces a skip rate of 0.
-# reason_end records how each play actually ended, so it is preferred.
-# A play counts as a skip when the user pressed the forward button.
-# If reason_end is unavailable or empty, fall back to "skipped".
+if (!is.numeric(data$ms_played)) {
+  stop("The ms_played column must contain numeric values.")
+}
+
+# Calculate skip rate
 
 calc_skip_rate <- function(df) {
 
@@ -82,44 +87,225 @@ calc_skip_rate <- function(df) {
   NA_real_
 }
 
-# Select listening records for the chosen artist
+# Parse timestamps and create month labels
 
-artist_data <- data[
-  !is.na(data$master_metadata_album_artist_name) &
-    data$master_metadata_album_artist_name == selected_artist,
-]
+data$timestamp <- as.POSIXct(
+  data$ts,
+  format = "%Y-%m-%dT%H:%M:%SZ",
+  tz = "UTC"
+)
 
-if (nrow(artist_data) == 0) {
+data$month <- format(
+  data$timestamp,
+  "%Y-%m",
+  tz = "Asia/Kolkata"
+)
+
+data$hour <- as.integer(
+  format(
+    data$timestamp,
+    "%H",
+    tz = "Asia/Kolkata"
+  )
+)
+
+data$time_of_day <- cut(
+  data$hour,
+  breaks = c(-1, 5, 11, 16, 20, 23),
+  labels = c(
+    "Night",
+    "Morning",
+    "Afternoon",
+    "Evening",
+    "Late Evening"
+  )
+)
+
+# Verify the artist(s) exist
+
+artist_names <- data$master_metadata_album_artist_name
+
+if (!any(!is.na(artist_names) & artist_names == selected_artist)) {
   stop("No listening history found for the selected artist.")
 }
 
-# Total listening time across all artists
+if (has_opponent &&
+    !any(!is.na(artist_names) & artist_names == opponent_artist)) {
+  stop("No listening history found for the opponent artist.")
+}
+
+# Establish the complete observed month range
+
+valid_timestamps <- data$timestamp[!is.na(data$timestamp)]
+
+if (length(valid_timestamps) == 0) {
+  stop("No valid timestamps found in the CSV.")
+}
+
+start_month <- as.Date(
+  paste0(
+    format(
+      min(valid_timestamps),
+      "%Y-%m",
+      tz = "Asia/Kolkata"
+    ),
+    "-01"
+  )
+)
+
+end_month <- as.Date(
+  paste0(
+    format(
+      max(valid_timestamps),
+      "%Y-%m",
+      tz = "Asia/Kolkata"
+    ),
+    "-01"
+  )
+)
+
+month_dates <- seq(
+  start_month,
+  end_month,
+  by = "month"
+)
+
+all_months <- format(month_dates, "%Y-%m")
+
+next_month <- format(
+  seq(end_month, by = "month", length.out = 2)[2],
+  "%Y-%m"
+)
+
+# Estimate the three probabilities for an artist
+
+predict_artist <- function(artist_name, df, months) {
+
+  # Only real listens (>= 30 seconds) count toward "listened this month"
+  artist_records <- df[
+    !is.na(df$master_metadata_album_artist_name) &
+      df$master_metadata_album_artist_name == artist_name &
+      !is.na(df$timestamp) &
+      !is.na(df$ms_played) &
+      df$ms_played >= LISTEN_THRESHOLD_MS,
+  ]
+
+  # Mark each month as 1 if the artist was played, otherwise 0
+
+  played_months <- unique(artist_records$month)
+
+  monthly_status <- as.integer(months %in% played_months)
+
+  number_of_months <- length(monthly_status)
+  months_listened <- sum(monthly_status)
+
+  # 1. Historical listening frequency
+
+  historical_probability <- mean(monthly_status)
+
+  # 2. Conditional probability using consecutive months
+
+  conditional_probability <- historical_probability
+  conditional_source <- "historical_fallback"
+  transition_count <- 0
+  transition_successes <- 0
+
+  if (number_of_months >= 2) {
+
+    previous_status <- monthly_status[-number_of_months]
+    next_status <- monthly_status[-1]
+
+    # Use transitions whose starting status matches the latest month
+
+    last_status <- monthly_status[number_of_months]
+
+    matching_transitions <- previous_status == last_status
+
+    transition_count <- sum(matching_transitions)
+
+    if (transition_count > 0) {
+
+      transition_successes <- sum(
+        next_status[matching_transitions] == 1
+      )
+
+      conditional_probability <- (
+        transition_successes / transition_count
+      )
+
+      conditional_source <- "transition"
+    }
+  }
+
+  # 3. Bayesian estimate using a Beta(1, 1) prior
+  #
+  # Posterior predictive probability:
+  # (months_listened + 1) / (number_of_months + 2)
+
+  bayesian_probability <- (
+    months_listened + 1
+  ) / (
+    number_of_months + 2
+  )
+
+  list(
+    artist = artist_name,
+    predictionMonth = next_month,
+    monthsObserved = number_of_months,
+    monthsListened = months_listened,
+    lastObservedMonth = tail(months, 1),
+    lastMonthListened = tail(monthly_status, 1) == 1,
+
+    historicalProbability = round(
+      historical_probability, 4
+    ),
+
+    conditionalProbability = round(
+      conditional_probability, 4
+    ),
+
+    conditionalSource = conditional_source,
+    transitionCount = transition_count,
+    transitionSuccesses = transition_successes,
+
+    bayesianProbability = round(
+      bayesian_probability, 4
+    )
+  )
+}
+
+selected_prediction <- predict_artist(
+  selected_artist,
+  data,
+  all_months
+)
+
+opponent_prediction <- if (has_opponent) {
+  predict_artist(opponent_artist, data, all_months)
+} else {
+  NULL
+}
+
+# Total listening statistics
 
 total_ms <- sum(data$ms_played, na.rm = TRUE)
 total_hours <- total_ms / 3600000
-
-# Total plays across all artists
 
 valid_tracks <- !is.na(data$master_metadata_track_name) &
   data$master_metadata_track_name != ""
 
 total_plays <- sum(valid_tracks)
 
-# Average listening time per recorded track play
-
-avg_ms <- if (total_plays > 0) {
-  total_ms / total_plays
+avg_seconds <- if (total_plays > 0) {
+  total_ms / total_plays / 1000
 } else {
   0
 }
-
-avg_seconds <- avg_ms / 1000
 
 # Favourite song across all artists
 
 song_counts <- sort(
   table(data$master_metadata_track_name[valid_tracks]),
-  #counts the frequency of unique values.
   decreasing = TRUE
 )
 
@@ -145,33 +331,15 @@ fav_album <- if (length(album_counts) > 0) {
   "Unknown"
 }
 
-# Skip rate across all artists
-
 skip_rate <- calc_skip_rate(data)
-
-# Parse timestamps
-
-data$timestamp <- as.POSIXct(
-  data$ts,
-  format = "%Y-%m-%dT%H:%M:%SZ",
-  tz = "UTC"
-)
-
-# Convert timestamps to Indian local time for grouping
-
-data$month <- format(
-  data$timestamp,
-  "%Y-%m",
-  tz = "Asia/Kolkata"
-)
 
 # Monthly listening hours across all artists
 
-valid_months <- !is.na(data$timestamp)
+valid_month_records <- data[!is.na(data$timestamp), ]
 
 monthly_ms <- aggregate(
   ms_played ~ month,
-  data = data[valid_months, ],
+  data = valid_month_records,
   FUN = function(x) sum(x, na.rm = TRUE)
 )
 
@@ -184,52 +352,31 @@ monthly_listening <- as.list(
   setNames(monthly_ms$hours, monthly_ms$month)
 )
 
-# Plays by time of day across all artists
-
-data$hour <- as.integer(
-  format(
-    data$timestamp,
-    "%H",
-    tz = "Asia/Kolkata"
-  )
-)
-
-data$time_of_day <- cut(
-  data$hour,
-  breaks = c(-1, 5, 11, 16, 20, 23),
-  labels = c(
-    "Night",
-    "Morning",
-    "Afternoon",
-    "Evening",
-    "Late Evening"
-  )
-)
+# Plays by time of day
 
 plays_by_time <- table(
   data$time_of_day,
   useNA = "no"
 )
 
-# Selected artist listening time
+# Selected artist statistics
+
+artist_data <- data[
+  !is.na(data$master_metadata_album_artist_name) &
+    data$master_metadata_album_artist_name == selected_artist,
+]
 
 artist_ms <- sum(artist_data$ms_played, na.rm = TRUE)
 artist_hours <- artist_ms / 3600000
-
-# Selected artist play count
 
 artist_valid_tracks <- !is.na(artist_data$master_metadata_track_name) &
   artist_data$master_metadata_track_name != ""
 
 artist_plays <- sum(artist_valid_tracks)
 
-# Selected artist's most-played song
-
 artist_song_counts <- sort(
   table(
-    artist_data$master_metadata_track_name[
-      artist_valid_tracks
-    ]
+    artist_data$master_metadata_track_name[artist_valid_tracks]
   ),
   decreasing = TRUE
 )
@@ -240,16 +387,12 @@ artist_favourite_song <- if (length(artist_song_counts) > 0) {
   "Unknown"
 }
 
-# Selected artist's most-played album
-
 artist_valid_albums <- !is.na(artist_data$master_metadata_album_album_name) &
   artist_data$master_metadata_album_album_name != ""
 
 artist_album_counts <- sort(
   table(
-    artist_data$master_metadata_album_album_name[
-      artist_valid_albums
-    ]
+    artist_data$master_metadata_album_album_name[artist_valid_albums]
   ),
   decreasing = TRUE
 )
@@ -260,37 +403,19 @@ artist_favourite_album <- if (length(artist_album_counts) > 0) {
   "Unknown"
 }
 
-# Artist loyalty: share of total listening time spent on this artist
-
 artist_loyalty <- if (total_ms > 0) {
   artist_ms / total_ms * 100
 } else {
   0
 }
 
-# Selected artist skip rate
-
 artist_skip_rate <- calc_skip_rate(artist_data)
 
-# Selected artist listening by month
-
-artist_data$timestamp <- as.POSIXct(
-  artist_data$ts,
-  format = "%Y-%m-%dT%H:%M:%SZ",
-  tz = "UTC"
-)
-
-artist_data$month <- format(
-  artist_data$timestamp,
-  "%Y-%m",
-  tz = "Asia/Kolkata"
-)
-
-artist_valid_months <- !is.na(artist_data$timestamp)
+# Selected artist monthly listening hours
 
 artist_monthly_ms <- aggregate(
   ms_played ~ month,
-  data = artist_data[artist_valid_months, ],
+  data = artist_data[!is.na(artist_data$timestamp), ],
   FUN = function(x) sum(x, na.rm = TRUE)
 )
 
@@ -308,40 +433,12 @@ artist_monthly_listening <- as.list(
 
 # Selected artist heatmap: month x time of day
 
-artist_data$hour <- as.integer(
-  format(
-    artist_data$timestamp,
-    "%H",
-    tz = "Asia/Kolkata"
-  )
-)
-
-#hour extracted ^
-
-artist_data$time_of_day <- cut(
-  artist_data$hour,
-  breaks = c(-1, 5, 11, 16, 20, 23),
-  labels = c(
-    "Night",
-    "Morning",
-    "Afternoon",
-    "Evening",
-    "Late Evening"
-  )
-)
-
-# Exclude records with invalid timestamps or time categories
-
 artist_heatmap_data <- artist_data[
   !is.na(artist_data$timestamp) &
     !is.na(artist_data$time_of_day),
 ]
 
-# Keep months in chronological order
-
 month_levels <- sort(unique(artist_heatmap_data$month))
-
-# Handle an empty heatmap safely
 
 if (length(month_levels) == 0) {
 
@@ -354,8 +451,6 @@ if (length(month_levels) == 0) {
     levels = month_levels
   )
 
-  # Count listening records for every month/time combination
-
   heatmap_counts <- as.data.frame(
     table(
       month = artist_heatmap_data$month,
@@ -363,8 +458,6 @@ if (length(month_levels) == 0) {
     ),
     stringsAsFactors = FALSE
   )
-
-  # Convert counts into nested lists for JSON
 
   artist_heatmap <- lapply(
     month_levels,
@@ -386,144 +479,100 @@ if (length(month_levels) == 0) {
   names(artist_heatmap) <- month_levels
 }
 
-# Correlation between the two artists' monthly listening hours
+# Correlation between both artists' monthly listening hours
+# (only when an opponent was supplied)
 
 correlation_value <- NA_real_
 correlation_monthly <- list()
 
-if (!is.null(opponent_artist)) {
+if (has_opponent) {
 
-  # Verify that the opponent exists in the listening history
+  valid_data <- data[
+    !is.na(data$timestamp) &
+      !is.na(data$ms_played),
+  ]
 
-  opponent_records <- !is.na(data$master_metadata_album_artist_name) &
-    data$master_metadata_album_artist_name == opponent_artist
+  artist_a_hours <- setNames(
+    rep(0, length(all_months)),
+    all_months
+  )
 
-  if (!any(opponent_records)) {
-    stop("No listening history found for the opponent artist.")
+  artist_b_hours <- setNames(
+    rep(0, length(all_months)),
+    all_months
+  )
+
+  artist_a_data <- valid_data[
+    !is.na(valid_data$master_metadata_album_artist_name) &
+      valid_data$master_metadata_album_artist_name == selected_artist,
+  ]
+
+  artist_b_data <- valid_data[
+    !is.na(valid_data$master_metadata_album_artist_name) &
+      valid_data$master_metadata_album_artist_name == opponent_artist,
+  ]
+
+  if (nrow(artist_a_data) > 0) {
+
+    monthly_a <- tapply(
+      artist_a_data$ms_played,
+      artist_a_data$month,
+      sum,
+      na.rm = TRUE
+    )
+
+    artist_a_hours[names(monthly_a)] <- monthly_a / 3600000
   }
 
-  # Use valid timestamps to establish the complete month range
+  if (nrow(artist_b_data) > 0) {
 
-  valid_timestamps <- data$timestamp[!is.na(data$timestamp)]
-
-  if (length(valid_timestamps) > 0) {
-
-    start_month <- as.Date(
-      format(
-        min(valid_timestamps),
-        "%Y-%m-01",
-        tz = "Asia/Kolkata"
-      )
+    monthly_b <- tapply(
+      artist_b_data$ms_played,
+      artist_b_data$month,
+      sum,
+      na.rm = TRUE
     )
 
-    end_month <- as.Date(
-      format(
-        max(valid_timestamps),
-        "%Y-%m-01",
-        tz = "Asia/Kolkata"
-      )
+    artist_b_hours[names(monthly_b)] <- monthly_b / 3600000
+  }
+
+  if (
+    length(all_months) >= 2 &&
+      sd(artist_a_hours) > 0 &&
+      sd(artist_b_hours) > 0
+  ) {
+
+    correlation_value <- cor(
+      artist_a_hours,
+      artist_b_hours,
+      method = "pearson"
     )
+  }
 
-    all_months <- format(
-      seq(start_month, end_month, by = "month"),
-      "%Y-%m"
-    )
+  correlation_monthly <- lapply(
+    seq_along(all_months),
+    function(i) {
 
-    # Initialize monthly listening hours to zero
-
-    artist_a_hours <- setNames(
-      rep(0, length(all_months)),
-      all_months
-    )
-
-    artist_b_hours <- setNames(
-      rep(0, length(all_months)),
-      all_months
-    )
-
-    # Exclude records with invalid timestamps or durations
-
-    valid_data <- data[
-      !is.na(data$timestamp) &
-        !is.na(data$ms_played),
-    ]
-
-    # Calculate monthly listening hours for the original artist
-
-    artist_a_data <- valid_data[
-      !is.na(valid_data$master_metadata_album_artist_name) &
-        valid_data$master_metadata_album_artist_name == selected_artist,
-    ]
-
-    if (nrow(artist_a_data) > 0) {
-
-      monthly_a <- tapply(
-        artist_a_data$ms_played,
-        artist_a_data$month,
-        sum,
-        na.rm = TRUE
-      )
-
-      artist_a_hours[names(monthly_a)] <- monthly_a / 3600000
-    }
-
-    # Calculate monthly listening hours for the opponent artist
-
-    artist_b_data <- valid_data[
-      !is.na(valid_data$master_metadata_album_artist_name) &
-        valid_data$master_metadata_album_artist_name == opponent_artist,
-    ]
-
-    if (nrow(artist_b_data) > 0) {
-
-      monthly_b <- tapply(
-        artist_b_data$ms_played,
-        artist_b_data$month,
-        sum,
-        na.rm = TRUE
-      )
-
-      artist_b_hours[names(monthly_b)] <- monthly_b / 3600000
-    }
-
-    # Calculate Pearson correlation when mathematically valid
-
-    if (
-      length(all_months) >= 2 &&
-        sd(artist_a_hours) > 0 &&
-        sd(artist_b_hours) > 0
-    ) {
-
-      correlation_value <- cor(
-        artist_a_hours,
-        artist_b_hours,
-        method = "pearson"
-      )
-    }
-
-    # Prepare paired monthly data for the frontend graph
-
-    correlation_monthly <- lapply(
-      seq_along(all_months),
-      function(i) {
-
-        list(
-          month = all_months[i],
-          artistHours = round(
-            unname(artist_a_hours[i]),
-            2
-          ),
-          opponentHours = round(
-            unname(artist_b_hours[i]),
-            2
-          )
+      list(
+        month = all_months[i],
+        artistHours = round(
+          unname(artist_a_hours[i]), 2
+        ),
+        opponentHours = round(
+          unname(artist_b_hours[i]), 2
         )
-      }
-    )
-  }
+      )
+    }
+  )
 }
 
 # Prepare JSON response
+
+predictions <- list(selectedArtist = selected_prediction)
+
+if (has_opponent) {
+  predictions$opponentArtist <- opponent_prediction
+}
 
 result <- list(
 
@@ -559,24 +608,20 @@ result <- list(
   artistMonthlyListening = artist_monthly_listening,
   artistHeatmap = artist_heatmap,
 
-  # Correlation results
+  listeningPredictions = predictions
+)
 
-  correlationArtist = if (is.null(opponent_artist)) {
-    NULL
-  } else {
-    selected_artist
-  },
-
-  correlationOpponent = opponent_artist,
-
-  correlation = if (is.na(correlation_value)) {
+if (has_opponent) {
+  result$opponentArtist <- opponent_artist
+  result$correlationArtist <- selected_artist
+  result$correlationOpponent <- opponent_artist
+  result$correlation <- if (is.na(correlation_value)) {
     NULL
   } else {
     round(correlation_value, 4)
-  },
-
-  correlationMonthly = correlation_monthly
-)
+  }
+  result$correlationMonthly <- correlation_monthly
+}
 
 # Output JSON for Node.js
 

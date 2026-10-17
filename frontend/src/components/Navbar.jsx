@@ -1,7 +1,7 @@
 
 import "./Navbar.css";
 import { Link } from "react-router-dom";
-import logo from "../assets/Rhapsody Signal Navbar.png";
+import logo from "../assets/LogoRhapsody.png";
 
 function Navbar() {
     return (

@@ -1,6 +1,11 @@
-
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
+const tableCellStyle = {
+    padding: "15px 12px",
+    borderBottom: "1px solid #292929",
+    overflowWrap: "anywhere",
+};
 
 function Versus() {
     const location = useLocation();
@@ -47,8 +52,12 @@ function Versus() {
                 const result = await response.json();
 
                 if (!response.ok) {
+                    if (result.details) {
+                        console.error("R details:", result.details);
+                    }
+
                     throw new Error(
-                        result.error || "Could not calculate the correlation."
+                        result.error || "Could not calculate the comparison."
                     );
                 }
 
@@ -79,6 +88,11 @@ function Versus() {
     const monthlyData = comparison?.correlationMonthly || [];
     const correlation = comparison?.correlation;
 
+    const predictions = comparison?.listeningPredictions;
+
+    const artistPrediction = predictions?.selectedArtist;
+    const opponentPrediction = predictions?.opponentArtist;
+
     function getCorrelationLabel(value) {
         if (value === null || value === undefined) {
             return "Not enough variation to calculate";
@@ -103,16 +117,53 @@ function Versus() {
         return "Strong negative relationship";
     }
 
+    // Accepts "YYYY-MM" (or "YYYY-MM-DD") and returns e.g. "January 2027"
     function formatMonth(month) {
+        if (!month) return "Unknown month";
+
         const [year, monthNumber] = month.split("-").map(Number);
 
         return new Date(
             Date.UTC(year, monthNumber - 1, 1)
         ).toLocaleDateString("en-US", {
-            month: "short",
+            month: "long",
             year: "numeric",
             timeZone: "UTC",
         });
+    }
+
+    function formatHours(value) {
+        return Number(value).toLocaleString("en-US", {
+            maximumFractionDigits: 2,
+        });
+    }
+
+    function formatProbability(value) {
+        if (
+            value === null ||
+            value === undefined ||
+            !Number.isFinite(Number(value))
+        ) {
+            return "N/A";
+        }
+
+        return `${(Number(value) * 100).toFixed(1)}%`;
+    }
+
+    function getPredictionDescription(prediction) {
+        if (!prediction) {
+            return "Prediction data is unavailable.";
+        }
+
+        if (prediction.conditionalSource === "historical_fallback") {
+            return "No matching previous-month transitions were available. The historical frequency is used as a fallback.";
+        }
+
+        const status = prediction.lastMonthListened
+            ? "you listened"
+            : "you did not listen";
+
+        return `Based on ${prediction.transitionCount} past month-to-month transitions that started from a month where ${status} (like your latest month). You listened in the following month ${prediction.transitionSuccesses} of those times.`;
     }
 
     const chartWidth = 760;
@@ -150,11 +201,6 @@ function Versus() {
         (_, index) => (axisMax / tickCount) * index
     );
 
-    const formatHours = (value) =>
-        Number(value).toLocaleString("en-US", {
-            maximumFractionDigits: 2,
-        });
-
     const pageStyle = {
         minHeight: "100vh",
         background: "#090909",
@@ -189,6 +235,239 @@ function Versus() {
         letterSpacing: "1px",
         cursor: "pointer",
     };
+
+    function ProbabilityRow({ label, description, value }) {
+        const valid =
+            value !== null &&
+            value !== undefined &&
+            Number.isFinite(Number(value));
+
+        const percentage = valid
+            ? Math.min(100, Math.max(0, Number(value) * 100))
+            : 0;
+
+        return (
+            <div
+                style={{
+                    padding: "18px 0",
+                    borderBottom: "1px solid #292929",
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "16px",
+                    }}
+                >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4
+                            style={{
+                                fontSize: "14px",
+                                fontWeight: 800,
+                                margin: 0,
+                                lineHeight: 1.5,
+                            }}
+                        >
+                            {label}
+                        </h4>
+
+                        <p
+                            style={{
+                                color: "#999",
+                                fontSize: "12px",
+                                lineHeight: 1.6,
+                                margin: "5px 0 0",
+                            }}
+                        >
+                            {description}
+                        </p>
+                    </div>
+
+                    <span
+                        style={{
+                            fontSize: "22px",
+                            fontWeight: 900,
+                            color: valid ? "#1ed760" : "#777",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {formatProbability(value)}
+                    </span>
+                </div>
+
+                <div
+                    style={{
+                        height: "5px",
+                        borderRadius: "10px",
+                        background: "#292929",
+                        marginTop: "14px",
+                        overflow: "hidden",
+                    }}
+                >
+                    <div
+                        style={{
+                            height: "100%",
+                            width: `${percentage}%`,
+                            background: "#1ed760",
+                            borderRadius: "10px",
+                            transition: "width 0.4s ease",
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    }
+
+    function PredictionCard({ prediction, fallbackArtist }) {
+        const predictionArtist = prediction?.artist || fallbackArtist;
+
+        return (
+            <article
+                style={{
+                    background: "#111",
+                    border: "1px solid #292929",
+                    borderRadius: "14px",
+                    padding: "clamp(16px, 3vw, 26px)",
+                    minWidth: 0,
+                }}
+            >
+                <p
+                    style={{
+                        color: "#1ed760",
+                        fontSize: "10px",
+                        fontWeight: 800,
+                        letterSpacing: "2px",
+                        margin: 0,
+                    }}
+                >
+                    RHAPSODY · LISTENING PREDICTION
+                </p>
+
+                <h3
+                    style={{
+                        fontSize: "clamp(19px, 3vw, 25px)",
+                        fontWeight: 900,
+                        margin: "16px 0 6px",
+                        overflowWrap: "anywhere",
+                    }}
+                >
+                    {predictionArtist}
+                </h3>
+
+                <p
+                    style={{
+                        color: "#999",
+                        fontSize: "12px",
+                        margin: "0 0 20px",
+                    }}
+                >
+                    {prediction?.predictionMonth
+                        ? `Prediction for ${formatMonth(
+                              prediction.predictionMonth
+                          )}`
+                        : "Next-month prediction"}
+                </p>
+
+                <div
+                    style={{
+                        background: "#191919",
+                        borderRadius: "10px",
+                        padding: "18px",
+                        marginBottom: "8px",
+                    }}
+                >
+                    <p
+                        style={{
+                            color: "#999",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            letterSpacing: "1px",
+                            margin: 0,
+                        }}
+                    >
+                        BAYESIAN PREDICTION
+                    </p>
+
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            flexWrap: "wrap",
+                            gap: "8px",
+                            marginTop: "8px",
+                        }}
+                    >
+                        <span
+                            style={{
+                                color: "#1ed760",
+                                fontSize: "clamp(34px, 6vw, 46px)",
+                                fontWeight: 900,
+                                letterSpacing: "-2px",
+                            }}
+                        >
+                            {formatProbability(
+                                prediction?.bayesianProbability
+                            )}
+                        </span>
+
+                        <span
+                            style={{
+                                color: "#aaa",
+                                fontSize: "12px",
+                            }}
+                        >
+                            predicted probability
+                        </span>
+                    </div>
+                </div>
+
+                <ProbabilityRow
+                    label="Historical listening frequency"
+                    description="Fraction of observed months in which you listened to this artist."
+                    value={prediction?.historicalProbability}
+                />
+
+                <ProbabilityRow
+                    label="Conditional probability estimate"
+                    description="Probability based on the previous month's listening status."
+                    value={prediction?.conditionalProbability}
+                />
+
+                <ProbabilityRow
+                    label="Bayesian estimate"
+                    description="Posterior predictive probability using a Beta(1, 1) prior."
+                    value={prediction?.bayesianProbability}
+                />
+
+                <div
+                    style={{
+                        marginTop: "18px",
+                        padding: "12px",
+                        background: "#191919",
+                        borderRadius: "8px",
+                        color: "#999",
+                        fontSize: "11px",
+                        lineHeight: 1.7,
+                    }}
+                >
+                    <p style={{ margin: 0 }}>
+                        <strong style={{ color: "#ddd" }}>
+                            Listening history:
+                        </strong>{" "}
+                        {prediction
+                            ? `${prediction.monthsListened} out of ${prediction.monthsObserved} observed months`
+                            : "Unavailable"}
+                    </p>
+
+                    <p style={{ margin: "7px 0 0" }}>
+                        {getPredictionDescription(prediction)}
+                    </p>
+                </div>
+            </article>
+        );
+    }
 
     return (
         <main style={pageStyle}>
@@ -306,8 +585,9 @@ function Versus() {
                         <h2>Analyzing your listening history...</h2>
 
                         <p style={{ color: "#999", lineHeight: 1.7 }}>
-                            Calculating monthly listening hours and Pearson's
-                            correlation coefficient.
+                            Calculating correlation, historical listening
+                            probabilities, conditional probabilities, and
+                            Bayesian estimates.
                         </p>
                     </section>
                 )}
@@ -424,7 +704,11 @@ function Versus() {
                                         left:
                                             correlation == null
                                                 ? "50%"
-                                                : `${((Number(correlation) + 1) / 2) * 100}%`,
+                                                : `${
+                                                      ((Number(correlation) + 1) /
+                                                          2) *
+                                                      100
+                                                  }%`,
                                         top: "-5px",
                                         width: "4px",
                                         height: "18px",
@@ -442,6 +726,7 @@ function Versus() {
                                     color: "#888",
                                     fontSize: "11px",
                                     marginTop: "10px",
+                                    gap: "8px",
                                 }}
                             >
                                 <span>-1 · Negative</span>
@@ -601,7 +886,9 @@ function Versus() {
                                                 fontSize="12"
                                                 textAnchor="middle"
                                                 fontWeight="600"
-                                                transform={`rotate(-90 20 ${(plotTop + plotBottom) / 2})`}
+                                                transform={`rotate(-90 20 ${
+                                                    (plotTop + plotBottom) / 2
+                                                })`}
                                             >
                                                 {opponent} (hours)
                                             </text>
@@ -616,9 +903,9 @@ function Versus() {
                                             marginTop: "18px",
                                         }}
                                     >
-                                        Hover over a dot to see its month and
-                                        listening hours. Both axes use the same
-                                        scale for easier comparison.
+                                        Each point represents a month. The
+                                        tooltip shows the month and listening
+                                        hours for both artists.
                                     </p>
                                 </>
                             )}
@@ -667,11 +954,9 @@ function Versus() {
                                             <th style={tableCellStyle}>
                                                 Month
                                             </th>
-
                                             <th style={tableCellStyle}>
                                                 {artist}
                                             </th>
-
                                             <th style={tableCellStyle}>
                                                 {opponent}
                                             </th>
@@ -684,7 +969,6 @@ function Versus() {
                                                 <td style={tableCellStyle}>
                                                     {formatMonth(item.month)}
                                                 </td>
-
                                                 <td
                                                     style={{
                                                         ...tableCellStyle,
@@ -692,10 +976,8 @@ function Versus() {
                                                         fontWeight: 700,
                                                     }}
                                                 >
-                                                    {formatHours(item.artistHours)}{" "}
-                                                    h
+                                                    {formatHours(item.artistHours)} h
                                                 </td>
-
                                                 <td
                                                     style={{
                                                         ...tableCellStyle,
@@ -703,13 +985,137 @@ function Versus() {
                                                         fontWeight: 700,
                                                     }}
                                                 >
-                                                    {formatHours(item.opponentHours)}{" "}
-                                                    h
+                                                    {formatHours(item.opponentHours)} h
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        </section>
+
+                        <section style={panelStyle}>
+                            <div style={{ marginBottom: "26px" }}>
+                                <p
+                                    style={{
+                                        color: "#1ed760",
+                                        fontSize: "10px",
+                                        fontWeight: 800,
+                                        letterSpacing: "2px",
+                                        margin: "0 0 10px",
+                                    }}
+                                >
+                                    PROBABILITY & STATISTICS
+                                </p>
+
+                                <h2
+                                    style={{
+                                        fontSize: "clamp(23px, 4vw, 30px)",
+                                        fontWeight: 900,
+                                        margin: 0,
+                                    }}
+                                >
+                                    Who will you listen to next month?
+                                </h2>
+
+                                <p
+                                    style={{
+                                        color: "#999",
+                                        fontSize: "13px",
+                                        lineHeight: 1.8,
+                                        maxWidth: "720px",
+                                        marginBottom: 0,
+                                    }}
+                                >
+                                    Each artist is evaluated independently using
+                                    historical frequency, conditional
+                                    probability, and Bayes' theorem. The
+                                    estimates describe whether you will listen
+                                    to an artist at least once (a play of 30
+                                    seconds or more) during the predicted
+                                    month.
+                                </p>
+                            </div>
+
+                            {predictions ? (
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns:
+                                            "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+                                        gap: "18px",
+                                    }}
+                                >
+                                    <PredictionCard
+                                        prediction={artistPrediction}
+                                        fallbackArtist={artist}
+                                    />
+
+                                    <PredictionCard
+                                        prediction={opponentPrediction}
+                                        fallbackArtist={opponent}
+                                    />
+                                </div>
+                            ) : (
+                                <div
+                                    style={{
+                                        padding: "22px",
+                                        background: "#111",
+                                        border: "1px solid #292929",
+                                        borderRadius: "10px",
+                                        color: "#aaa",
+                                        lineHeight: 1.7,
+                                        fontSize: "13px",
+                                    }}
+                                >
+                                    Prediction data was not included in the
+                                    server response. Update the backend to
+                                    return the listeningPredictions object
+                                    generated by the R script.
+                                </div>
+                            )}
+
+                            <div
+                                style={{
+                                    marginTop: "22px",
+                                    color: "#777",
+                                    fontSize: "12px",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                <p>
+                                    <strong style={{ color: "#bbb" }}>
+                                        Historical probability:
+                                    </strong>{" "}
+                                    the fraction of observed months in which
+                                    you listened to the artist.
+                                </p>
+
+                                <p>
+                                    <strong style={{ color: "#bbb" }}>
+                                        Conditional probability:
+                                    </strong>{" "}
+                                    uses the previous month's listening status
+                                    to estimate the probability for the next
+                                    month.
+                                </p>
+
+                                <p>
+                                    <strong style={{ color: "#bbb" }}>
+                                        Bayesian estimate:
+                                    </strong>{" "}
+                                    uses a Beta(1, 1) prior and the observed
+                                    listening and non-listening months to
+                                    calculate a posterior predictive
+                                    probability.
+                                </p>
+
+                                <p>
+                                    These estimates use different assumptions
+                                    and are not averaged together. They are
+                                    estimates based on past behaviour, not
+                                    guarantees of future listening.
+                                </p>
                             </div>
                         </section>
 
@@ -744,11 +1150,5 @@ function Versus() {
         </main>
     );
 }
-
-const tableCellStyle = {
-    padding: "15px 12px",
-    borderBottom: "1px solid #292929",
-    overflowWrap: "anywhere",
-};
 
 export default Versus;
