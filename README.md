@@ -1,16 +1,49 @@
-# React + Vite
+# 🎧 [Rhapsody] – Spotify Listening History Analyzer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Upload your Spotify listening history and get statistical insights, artist-vs-artist comparisons, song recommendations, and next-month listening predictions. A Node.js backend runs the analysis in R, and a React dashboard shows the results.
 
-Currently, two official plugins are available:
+> Built for the Probability & Statistics course (B.Tech CSE-DS), SVKM's NMIMS Hyderabad.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ✨ Features
 
-## React Compiler
+- **Listening predictions:** the probability that you'll listen to an artist next month, estimated three ways:
+  - **Historical frequency:** the share of past months with a real listen.
+  - **Conditional probability:** a Markov-style estimate from month-to-month transitions, given whether you listened last month.
+  - **Bayesian estimate:** a Beta(1,1) prior, which gives `(k + 1) / (n + 2)`.
+- **Artist vs. artist:** compares two artists' monthly listening hours with Pearson correlation.
+- **Listening habits:** a month × time-of-day heatmap, skip rate, artist loyalty, favourite song and album, and monthly trends.
+- **Song recommendations:** ranks songs by comparing each song's completion rate to your baseline with a binomial normal-approximation z-score. The score is then combined with how many months you kept listening to the song.
+- **Distribution diagnostics:** skewness, kurtosis, and Spearman rank correlation.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Only plays of **30 seconds or longer** count as listens, which matches Spotify's own rule for counting a stream.
 
-## Expanding the ESLint configuration
+## 🧮 Statistical Methods
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Area | Methods |
+|---|---|
+| Descriptive | Totals, means, frequency counts (mode), proportions |
+| Probability | Historical frequency, conditional (transition) probability, Bayesian posterior (Beta-Binomial) |
+| Inference | Bernoulli trials, normal approximation to the binomial, z-score standardisation, minimum sample rule (n·p ≥ 5) |
+| Association | Pearson and Spearman correlation |
+| Shape | Skewness and kurtosis |
+
+## 🛠️ Tech Stack
+
+| Layer | Tools |
+|---|---|
+| Frontend | React, HTML, CSS, JavaScript |
+| Backend | Node.js, Express |
+| Middleware | Multer (file upload), CORS |
+| Analysis | R, `jsonlite` |
+
+## ⚙️ How It Works
+
+1. The user uploads a Spotify history file, converted from Spotify's JSON export to CSV, through the React UI.
+2. Express and Multer receive the file and run the R scripts with the CSV path and the selected artist(s) as arguments.
+3. R cleans the data, computes the statistics and probabilities, and prints JSON.
+4. Node.js sends the JSON to the frontend, which renders the charts.
+
+## 📥 Getting Your Data
+
+Request your data from Spotify at https://www.spotify.com/in-en/account/privacy/ and convert the JSON files to CSV.
+
