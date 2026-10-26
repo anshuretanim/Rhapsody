@@ -46,3 +46,5 @@ Only plays of **30 seconds or longer** count as listens, which matches Spotify's
 ## 📥 Getting Your Data
 
 Request your data from Spotify at https://www.spotify.com/in-en/account/privacy/ and make sure to convert the received JSON files to CSV.
+
+Note: Create an "uploads" folder under the backend folder. All your csv files will be saved there.
